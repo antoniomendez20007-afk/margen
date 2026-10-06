@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
-import { api, isLocal, token, ApiError } from './api.js';
+import { api, isLocal, token, cache, ApiError } from './api.js';
 import Resumen from './Charts.jsx';
 import { SLOTS, BREAK, WEEK, MODS, ORDER, DAYS, MONTHS, WD, WDL, key, parse, wdIdx } from './data.js';
 
@@ -58,10 +58,12 @@ const Logo = ({ size = 44, radius = 14, font = 26, children = 'm' }) => (
 
 export default function App() {
   const [theme, setTheme] = useTheme();
-  const [boot, setBoot] = useState(() => !!token.get());
-  const [user, setUser] = useState(null);
-  const [abs, setAbs] = useState([]);
-  const [screen, setScreen] = useState('login');
+  const [cached] = useState(() => (token.get() ? cache.get() : null));
+  const [boot, setBoot] = useState(() => !!token.get() && !cached);
+  const [slow, setSlow] = useState(false);
+  const [user, setUser] = useState(() => cached?.user ?? null);
+  const [abs, setAbs] = useState(() => cached?.abs ?? []);
+  const [screen, setScreen] = useState(() => (cached ? 'app' : 'login'));
   const [toast, setToast] = useState(null);
   const tt = useRef();
 
@@ -73,10 +75,19 @@ export default function App() {
   const enter = (res) => { setUser(res.user); setAbs(res.abs || []); setScreen('app'); };
   const leave = () => { token.clear(); setUser(null); setAbs([]); setScreen('login'); setToast(null); };
 
+  // Guarda lo último que se ha visto para abrir al instante la próxima vez
+  useEffect(() => { if (user && screen === 'app') cache.set({ user, abs }); }, [user, abs, screen]);
+
   useEffect(() => {
     const t = token.get();
     if (!t) return;
-    api.me(t).then(enter).catch((e) => { if (e.session) token.clear(); else showToast(e.message); }).finally(() => setBoot(false));
+    const sl = setTimeout(() => setSlow(true), 3000);
+    api.me(t).then(enter)
+      .catch((e) => {
+        if (e.session) { leave(); if (cached) showToast(e.message); }
+        else showToast(cached ? 'Sin conexión: estás viendo tus últimos datos.' : e.message);
+      })
+      .finally(() => { clearTimeout(sl); setBoot(false); });
   }, []);
 
   // Llama al servidor y deja las faltas tal y como las tiene él
@@ -89,7 +100,14 @@ export default function App() {
     }
   };
 
-  if (boot) return <div className="splash"><Logo /></div>;
+  if (boot) return (
+    <div className="splash">
+      <div className="col" style={{ alignItems: 'center', gap: 18 }}>
+        <Logo />
+        <span className="muted" style={{ fontSize: 15, fontWeight: 700, visibility: slow ? 'visible' : 'hidden' }}>Conectando con el servidor…</span>
+      </div>
+    </div>
+  );
 
   const logout = () => { const t = token.get(); if (t) api.logout(t).catch(() => {}); leave(); };
 

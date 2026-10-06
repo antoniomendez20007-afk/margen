@@ -22,7 +22,16 @@ export const token = {
       (remember ? localStorage : sessionStorage).setItem(TK, t);
     } catch { /* sin almacenamiento: la sesión dura lo que la pestaña */ }
   },
-  clear() { try { localStorage.removeItem(TK); sessionStorage.removeItem(TK); } catch { /* nada */ } },
+  clear() { try { localStorage.removeItem(TK); sessionStorage.removeItem(TK); localStorage.removeItem(CK); sessionStorage.removeItem(CK); } catch { /* nada */ } },
+};
+
+// Últimos datos recibidos, en el mismo sitio que el token: la app abre al
+// instante con ellos mientras el servidor (que puede tardar en despertar) contesta.
+const CK = 'margen_cache';
+const store = () => { try { return localStorage.getItem(TK) ? localStorage : sessionStorage.getItem(TK) ? sessionStorage : null; } catch { return null; } };
+export const cache = {
+  get() { try { const s = store(); return s ? JSON.parse(s.getItem(CK)) : null; } catch { return null; } },
+  set(data) { try { store()?.setItem(CK, JSON.stringify(data)); } catch { /* nada */ } },
 };
 
 // ── Apps Script ──────────────────────────────────────────────────────────
@@ -31,20 +40,40 @@ const unwrap = (out, resolve, reject) => {
   if (r.error) reject(new ApiError(r.error, r.session)); else resolve(r.data);
 };
 
-const run = (action, args) => new Promise((resolve, reject) => {
-  if (!gas) {
-    // text/plain es una petición «simple»: Apps Script no responde a las previas de CORS
-    fetch(API_URL, { method: 'POST', headers: { 'content-type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action, args }), redirect: 'follow' })
-      .then((r) => r.text())
-      .then((out) => unwrap(out, resolve, reject))
-      .catch(() => reject(new ApiError('Sin conexión. Revisa internet y vuelve a probar.')));
-    return;
+// Google a veces tarda en despertar o contesta con una página de error
+// («No se puede abrir el archivo»): en ese caso el script no llegó a ejecutarse
+// y se puede repetir sin riesgo. Las lecturas se repiten también si se corta la red.
+const READS = new Set(['me', 'login']);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function post(action, args) {
+  const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), 45000);
+  try {
+    const r = await fetch(API_URL, { method: 'POST', headers: { 'content-type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action, args }), redirect: 'follow', signal: ctrl.signal });
+    const text = await r.text();
+    try { return { json: JSON.parse(text) }; } catch { return { googleError: true }; }
+  } catch { return { network: true }; }
+  finally { clearTimeout(timer); }
+}
+
+const run = async (action, args) => {
+  if (gas) {
+    return new Promise((resolve, reject) => {
+      google.script.run
+        .withSuccessHandler((out) => unwrap(out, resolve, reject))
+        .withFailureHandler(() => reject(new ApiError('Sin conexión. Revisa internet y vuelve a probar.')))
+        .api(action, JSON.stringify(args));
+    });
   }
-  google.script.run
-    .withSuccessHandler((out) => unwrap(out, resolve, reject))
-    .withFailureHandler(() => reject(new ApiError('Sin conexión. Revisa internet y vuelve a probar.')))
-    .api(action, JSON.stringify(args));
-});
+  for (let i = 0; i < 3; i++) {
+    const r = await post(action, args);
+    if (r.json) return new Promise((resolve, reject) => unwrap(r.json, resolve, reject));
+    const retry = r.googleError || READS.has(action);
+    if (!retry || i === 2) break;
+    await sleep(1200 * (i + 1));
+  }
+  throw new ApiError('No se ha podido conectar con el servidor. Prueba otra vez en un momento.');
+};
 
 const remote = {
   login: (user, pass, remember) => run('login', { user, pass, remember }),
