@@ -1,0 +1,23 @@
+{
+  "name": "margen",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && node scripts/to-gas.mjs",
+    "push": "npm run build && clasp push -f",
+    "deploy": "npm run push && clasp update-deployment AKfycbxcPjcjmq1N6O2UriM5cz8vWM-6nEj4Aokx3wdtqz7d0z7SqcbUcnwGH0XeUsJywXilJw -d \"Margen\"",
+    "build:pages": "vite build --mode pages"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@google/clasp": "^3.4.1",
+    "@vitejs/plugin-react": "^6.1.2",
+    "vite": "^8.3.2",
+    "vite-plugin-singlefile": "^2.3.3"
+  }
+}
