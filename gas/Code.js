@@ -6,11 +6,25 @@
 var MODS = ['MD', 'DEMC', 'TCIC', 'MSC', 'RPOE', 'LPS', 'IPE2', 'OGS', 'PIMP'];
 var SHEETS = {
   Config: ['clave', 'valor'],
-  Alumnos: ['id', 'usuario', 'nombre', 'sal', 'hash', 'fallos', 'bloqueado_hasta', 'creado'],
+  Alumnos: ['id', 'usuario', 'nombre', 'sal', 'hash', 'fallos', 'bloqueado_hasta', 'creado', 'foto', 'compartir'],
   Sesiones: ['token_hash', 'alumno_id', 'caduca'],
   Faltas: ['id', 'alumno_id', 'modulo', 'fecha', 'hora', 'etiqueta', 'creada'],
+  Tablon: ['id', 'alumno_id', 'texto', 'modulo', 'padre', 'creado'],
+  Reacciones: ['post_id', 'alumno_id'],
+  Chat: ['id', 'alumno_id', 'texto', 'creado'],
+  Apuntes: ['id', 'alumno_id', 'titulo', 'modulo', 'file_id', 'nombre', 'tipo', 'tamano', 'url', 'creado'],
 };
-var DEFAULTS = [['codigo_clase', 'SALINAS2A'], ['max_alumnos', '60']];
+// admins: usuarios separados por comas que pueden borrar cualquier publicación
+var DEFAULTS = [['codigo_clase', 'SALINAS2A'], ['max_alumnos', '60'], ['admins', '']];
+var SCHEMA = '2';
+var NOTE_TYPES = {
+  'application/pdf': 1, 'image/jpeg': 1, 'image/png': 1, 'image/webp': 1, 'image/heic': 1, 'text/plain': 1,
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 1,
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': 1,
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 1,
+  'application/msword': 1, 'application/vnd.ms-powerpoint': 1, 'application/vnd.ms-excel': 1,
+};
+var NOTE_MAX = 8 * 1024 * 1024;
 var HASH_ROUNDS = 400;
 var DAY = 24 * 3600 * 1000;
 
@@ -40,6 +54,7 @@ function setup() {
 
 function api(action, argsJson) {
   try {
+    migrate_();
     var fn = ACTIONS[action];
     if (!fn) throw userError_('Petición no válida.');
     return JSON.stringify({ data: fn(JSON.parse(argsJson || '{}')) });
@@ -91,6 +106,136 @@ var ACTIONS = {
     var sid = sid_(a.token), t = table_('Alumnos'), i = t.find(function (r) { return r.id === sid; });
     if (i < 0) throw userError_('Tu sesión ha caducado. Vuelve a entrar.', true);
     return { user: pub_(t.rows[i]), abs: absList_(sid) };
+  },
+
+  // ── Perfil ──
+  setPhoto: function (a) {
+    var foto = String(a.foto || '');
+    if (foto && (!/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(foto) || foto.length > 45000)) throw userError_('La foto no es válida.');
+    return locked_(function () { var m = me_(a.token); m.t.update(m.i, { foto: foto }); return pub_(m.t.rows[m.i]); });
+  },
+  setShare: function (a) {
+    return locked_(function () { var m = me_(a.token); m.t.update(m.i, { compartir: a.share ? '1' : '' }); return pub_(m.t.rows[m.i]); });
+  },
+
+  // ── Compañeros ──
+  people: function (a) {
+    var m = me_(a.token), faltas = table_('Faltas').rows;
+    return m.t.rows.map(function (r) {
+      var share = r.compartir === '1', res = null;
+      if (share) { res = {}; faltas.forEach(function (f) { if (f.alumno_id === r.id) res[f.modulo] = (res[f.modulo] || 0) + 1; }); }
+      return { user: r.usuario, name: r.nombre, foto: r.foto || '', share: share, resumen: res, me: r.id === m.sid, admin: isAdmin_(r.usuario) };
+    }).sort(function (x, y) { return x.name.localeCompare(y.name, 'es'); });
+  },
+
+  // ── Tablón ──
+  board: function (a) {
+    var m = me_(a.token), who = names_(), likes = {}, mine = {};
+    table_('Reacciones').rows.forEach(function (r) { likes[r.post_id] = (likes[r.post_id] || 0) + 1; if (r.alumno_id === m.sid) mine[r.post_id] = true; });
+    var rows = table_('Tablon').rows.slice(-300);
+    return rows.map(function (r) {
+      return { id: Number(r.id), user: who[r.alumno_id] || '?', text: r.texto, mod: r.modulo, parent: r.padre ? Number(r.padre) : null, at: r.creado, likes: likes[r.id] || 0, liked: !!mine[r.id] };
+    });
+  },
+  post: function (a) {
+    var m = me_(a.token), text = cleanText_(a.text, 1000), mod = MODS.indexOf(a.mod) >= 0 ? a.mod : '';
+    throttle_('post', m.sid, 5);
+    return locked_(function () {
+      var t = table_('Tablon'), parent = '';
+      if (a.parent) {
+        var pi = t.find(function (r) { return String(r.id) === String(a.parent) && !r.padre; });
+        if (pi < 0) throw userError_('Esa publicación ya no existe.');
+        parent = t.rows[pi].id;
+      }
+      t.append([{ id: nextId_(t), alumno_id: m.sid, texto: text, modulo: mod, padre: parent, creado: new Date().toISOString() }]);
+      return ACTIONS.board(a);
+    });
+  },
+  like: function (a) {
+    var m = me_(a.token);
+    return locked_(function () {
+      var t = table_('Reacciones'), id = String(a.id), had = false;
+      t.removeWhere(function (r) { if (r.post_id === id && r.alumno_id === m.sid) { had = true; return true; } return false; });
+      if (!had) t.append([{ post_id: id, alumno_id: m.sid }]);
+      return ACTIONS.board(a);
+    });
+  },
+  delPost: function (a) {
+    var m = me_(a.token), id = String(a.id);
+    return locked_(function () {
+      var t = table_('Tablon'), i = t.find(function (r) { return String(r.id) === id; });
+      if (i >= 0) {
+        if (t.rows[i].alumno_id !== m.sid && !m.admin) throw userError_('Solo puedes borrar lo que has publicado tú.');
+        var gone = {}; gone[id] = true;
+        t.removeWhere(function (r) { if (String(r.id) === id || r.padre === id) { gone[r.id] = true; return true; } return false; });
+        table_('Reacciones').removeWhere(function (r) { return gone[r.post_id]; });
+      }
+      return ACTIONS.board(a);
+    });
+  },
+
+  // ── Chat ──
+  chat: function (a) {
+    me_(a.token);
+    var who = names_(), since = Number(a.since) || 0;
+    return table_('Chat').rows.slice(-200)
+      .filter(function (r) { return Number(r.id) > since; })
+      .map(function (r) { return { id: Number(r.id), user: who[r.alumno_id] || '?', text: r.texto, at: r.creado }; });
+  },
+  send: function (a) {
+    var m = me_(a.token), text = cleanText_(a.text, 500);
+    throttle_('chat', m.sid, 1);
+    return locked_(function () {
+      var t = table_('Chat');
+      t.append([{ id: nextId_(t), alumno_id: m.sid, texto: text, creado: new Date().toISOString() }]);
+      return ACTIONS.chat(a);
+    });
+  },
+  delMsg: function (a) {
+    var m = me_(a.token), id = String(a.id);
+    return locked_(function () {
+      var t = table_('Chat'), i = t.find(function (r) { return String(r.id) === id; });
+      if (i >= 0 && t.rows[i].alumno_id !== m.sid && !m.admin) throw userError_('Solo puedes borrar tus mensajes.');
+      t.removeWhere(function (r) { return String(r.id) === id; });
+      return { deleted: Number(id) };
+    });
+  },
+
+  // ── Apuntes ──
+  notes: function (a) {
+    me_(a.token);
+    var who = names_();
+    return table_('Apuntes').rows.map(function (r) {
+      return { id: Number(r.id), user: who[r.alumno_id] || '?', title: r.titulo, mod: r.modulo, name: r.nombre, type: r.tipo, size: Number(r.tamano) || 0, url: r.url, at: r.creado };
+    }).reverse();
+  },
+  upload: function (a) {
+    var m = me_(a.token), title = cleanText_(a.title, 80), mod = MODS.indexOf(a.mod) >= 0 ? a.mod : '';
+    var type = String(a.type || ''), name = String(a.name || 'archivo').slice(0, 120);
+    if (!NOTE_TYPES[type]) throw userError_('Ese tipo de archivo no se puede subir. Usa PDF, foto, Word, PowerPoint o Excel.');
+    var bytes = Utilities.base64Decode(String(a.data || ''));
+    if (!bytes.length) throw userError_('El archivo está vacío.');
+    if (bytes.length > NOTE_MAX) throw userError_('El archivo pesa demasiado (máximo 8 MB).');
+    throttle_('upload', m.sid, 10);
+    var file = notesFolder_().createFile(Utilities.newBlob(bytes, type, name));
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    return locked_(function () {
+      var t = table_('Apuntes');
+      t.append([{ id: nextId_(t), alumno_id: m.sid, titulo: title, modulo: mod, file_id: file.getId(), nombre: name, tipo: type, tamano: bytes.length, url: file.getUrl(), creado: new Date().toISOString() }]);
+      return ACTIONS.notes(a);
+    });
+  },
+  delNote: function (a) {
+    var m = me_(a.token), id = String(a.id);
+    return locked_(function () {
+      var t = table_('Apuntes'), i = t.find(function (r) { return String(r.id) === id; });
+      if (i >= 0) {
+        if (t.rows[i].alumno_id !== m.sid && !m.admin) throw userError_('Solo puedes borrar los apuntes que has subido tú.');
+        try { DriveApp.getFileById(t.rows[i].file_id).setTrashed(true); } catch (e) { /* ya no estaba */ }
+        t.removeWhere(function (r) { return String(r.id) === id; });
+      }
+      return ACTIONS.notes(a);
+    });
   },
 
   logout: function (a) {
@@ -179,7 +324,51 @@ function hash_(pass, salt) {
 
 function randomHex_() { return Utilities.getUuid().replace(/-/g, ''); }
 function norm_(u) { return String(u || '').trim().toLowerCase(); }
-function pub_(s) { return { user: s.usuario, name: s.nombre }; }
+function pub_(s) { return { user: s.usuario, name: s.nombre, foto: s.foto || '', share: s.compartir === '1', admin: isAdmin_(s.usuario) }; }
+function isAdmin_(u) { return String(config_('admins') || '').split(',').map(norm_).indexOf(norm_(u)) >= 0; }
+
+// Añade tablas y columnas nuevas a una hoja ya existente, sin tocar los datos
+function migrate_() {
+  var props = PropertiesService.getScriptProperties();
+  if (props.getProperty('SCHEMA') === SCHEMA) return;
+  locked_(function () { db_(true); props.setProperty('SCHEMA', SCHEMA); });
+}
+
+// Evita ráfagas: una acción de este tipo cada «s» segundos por alumno
+function throttle_(kind, sid, s) {
+  var c = CacheService.getScriptCache(), k = kind + '_' + sid;
+  if (c.get(k)) throw userError_('Vas muy rápido. Espera un momento.');
+  c.put(k, '1', s);
+}
+
+function me_(token) {
+  var sid = sid_(token), t = table_('Alumnos'), i = t.find(function (r) { return r.id === sid; });
+  if (i < 0) throw userError_('Tu sesión ha caducado. Vuelve a entrar.', true);
+  return { sid: sid, t: t, i: i, row: t.rows[i], admin: isAdmin_(t.rows[i].usuario) };
+}
+
+function names_() {
+  var m = {};
+  table_('Alumnos').rows.forEach(function (r) { m[r.id] = r.usuario; });
+  return m;
+}
+
+function cleanText_(s, max) {
+  var x = String(s || '').replace(/\r/g, '').replace(/[\u0000-\u0008\u000B-\u001F]/g, '').trim();
+  if (!x) throw userError_('Escribe algo antes de enviar.');
+  if (x.length > max) throw userError_('El texto es demasiado largo (máximo ' + max + ' caracteres).');
+  return x;
+}
+
+function nextId_(t) { return t.rows.reduce(function (m, r) { return Math.max(m, Number(r.id) || 0); }, 0) + 1; }
+
+function notesFolder_() {
+  var props = PropertiesService.getScriptProperties(), id = props.getProperty('NOTES_FOLDER');
+  if (id) { try { return DriveApp.getFolderById(id); } catch (e) { /* se borró: se crea otra */ } }
+  var f = DriveApp.createFolder('Margen · apuntes de la clase');
+  props.setProperty('NOTES_FOLDER', f.getId());
+  return f;
+}
 function userError_(msg, session) { var e = new Error(msg); e.user = true; e.session = !!session; return e; }
 
 function absList_(sid) {

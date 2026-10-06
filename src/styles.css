@@ -165,3 +165,8 @@ main{flex:1;min-width:0}
 .dock .add{width:64px;height:64px;border-radius:999px;border:0;background:var(--accent);color:var(--onAccent);display:grid;place-items:center;cursor:pointer;box-shadow:0 12px 30px rgba(0,0,0,.3);flex:none}
 .chipfloat{position:absolute;display:flex;align-items:center;gap:7px;padding:8px 12px;border-radius:999px;background:var(--glass);border:1px solid var(--line);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);font-size:12px;font-weight:600;color:var(--ink);box-shadow:0 8px 24px rgba(0,0,0,.18);white-space:nowrap}
 .round:disabled{cursor:default}
+.textin{flex:1;min-width:0;width:100%;border:1px solid var(--line);background:var(--surface2);color:var(--ink);border-radius:18px;padding:10px 14px;font:inherit;font-size:15px;line-height:1.4;resize:none;outline:none}
+.textin:focus{border-color:var(--gold)}
+.chatbar{position:fixed;left:16px;right:16px;bottom:calc(92px + env(safe-area-inset-bottom));max-width:480px;margin:0 auto;display:flex;gap:8px;padding:6px;border-radius:999px;z-index:19;background:var(--glass);border:1px solid var(--line);-webkit-backdrop-filter:blur(22px);backdrop-filter:blur(22px);box-shadow:0 12px 30px rgba(0,0,0,.25)}
+.avatar img{border-radius:inherit}
+.textin:focus-visible{outline:none}

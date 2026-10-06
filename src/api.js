@@ -83,6 +83,19 @@ const remote = {
   add: (t, items) => run('add', { token: t, items }),
   del: (t, ids) => run('del', { token: t, ids }),
   setTag: (t, id, tag) => run('setTag', { token: t, id, tag }),
+  setPhoto: (t, foto) => run('setPhoto', { token: t, foto }),
+  setShare: (t, share) => run('setShare', { token: t, share }),
+  people: (t) => run('people', { token: t }),
+  board: (t) => run('board', { token: t }),
+  post: (t, text, mod, parent) => run('post', { token: t, text, mod, parent }),
+  like: (t, id) => run('like', { token: t, id }),
+  delPost: (t, id) => run('delPost', { token: t, id }),
+  chat: (t, since) => run('chat', { token: t, since }),
+  send: (t, text, since) => run('send', { token: t, text, since }),
+  delMsg: (t, id) => run('delMsg', { token: t, id }),
+  notes: (t) => run('notes', { token: t }),
+  upload: (t, f) => run('upload', { token: t, ...f }),
+  delNote: (t, id) => run('delNote', { token: t, id }),
 };
 
 // ── Modo de prueba (localStorage) ────────────────────────────────────────
@@ -121,7 +134,32 @@ const absOf = (u) => {
   return a;
 };
 const userOf = (t) => { const u = users().find((x) => x.user === t); if (!u) throw new ApiError('Tu sesión ha caducado. Vuelve a entrar.', true); return u; };
-const pub = (u) => ({ user: u.user, name: u.name });
+const prof = (u) => LS.read('margen_profile_' + u, {});
+const pub = (u) => ({ user: u.user, name: u.name, foto: prof(u.user).foto || '', share: !!prof(u.user).share, admin: u.user === DEMO.user });
+
+// Compañeros, tablón, chat y apuntes de ejemplo para el modo de prueba
+const MATES = [
+  { user: 'pablo', name: 'Pablo Gómez', share: true, res: { MD: 4, LPS: 2, RPOE: 1 } },
+  { user: 'marta', name: 'Marta Ruiz', share: false },
+  { user: 'ivan', name: 'Iván Sánchez', share: true, res: { DEMC: 9, TCIC: 3 } },
+  { user: 'sara', name: 'Sara Domínguez', share: false },
+];
+const ago = (m) => new Date(Date.now() - m * 60000).toISOString();
+const seed = (k, v) => { const x = LS.read(k, null); if (x) return x; LS.write(k, v); return v; };
+const boardOf = () => seed('margen_board', [
+  { id: 1, user: 'pablo', text: 'Recordad que el jueves hay que entregar la campaña de LPS. ¿Alguien sabe si es en papel o por Classroom?', mod: 'LPS', parent: null, at: ago(190), likes: ['marta', 'ivan'] },
+  { id: 2, user: 'marta', text: 'Por Classroom, lo dijo Juana el lunes.', mod: '', parent: 1, at: ago(160), likes: ['pablo'] },
+  { id: 3, user: 'ivan', text: 'Mañana no hay MD a primera, el profe avisó por correo.', mod: 'MD', parent: null, at: ago(45), likes: [] },
+]);
+const chatOf = () => seed('margen_chat', [
+  { id: 1, user: 'sara', text: '¿Alguien va al recreo a la cafetería?', at: ago(30) },
+  { id: 2, user: 'pablo', text: 'Yo voy', at: ago(28) },
+]);
+const notesOf = () => seed('margen_notes', [
+  { id: 1, user: 'marta', title: 'Resumen tema 2 · Medios', mod: 'MSC', name: 'tema2-medios.pdf', type: 'application/pdf', size: 482000, url: '#', at: ago(2000) },
+]);
+const boardView = (me) => boardOf().map((p) => ({ ...p, likes: p.likes.length, liked: p.likes.includes(me) }));
+const chatView = (since) => chatOf().filter((m) => m.id > (since || 0));
 
 const local = {
   async login(user, pass) {
@@ -165,6 +203,48 @@ const local = {
     const u = userOf(t).user, a = absOf(u).map((x) => (x.id === id ? { ...x, tag } : x));
     LS.write('margen_abs_' + u, a); return a;
   },
+  async setPhoto(t, foto) { await wait(); const u = userOf(t); LS.write('margen_profile_' + u.user, { ...prof(u.user), foto }); return pub(u); },
+  async setShare(t, share) { await wait(); const u = userOf(t); LS.write('margen_profile_' + u.user, { ...prof(u.user), share }); return pub(u); },
+  async people(t) {
+    await wait(); const me = userOf(t);
+    const count = (a) => a.reduce((m, x) => ({ ...m, [x.mod]: (m[x.mod] || 0) + 1 }), {});
+    const list = [...users().map((u) => ({ ...pub(u), me: u.user === me.user, resumen: prof(u.user).share ? count(absOf(u.user)) : null })),
+      ...MATES.map((m) => ({ user: m.user, name: m.name, foto: '', share: m.share, resumen: m.share ? m.res : null, me: false, admin: false }))];
+    return list.sort((a, b) => a.name.localeCompare(b.name, 'es'));
+  },
+  async board(t) { await wait(); return boardView(userOf(t).user); },
+  async post(t, text, mod, parent) {
+    await wait(); const me = userOf(t).user, b = boardOf(), x = String(text || '').trim();
+    if (!x) throw new ApiError('Escribe algo antes de enviar.');
+    if (x.length > 1000) throw new ApiError('El texto es demasiado largo (máximo 1000 caracteres).');
+    b.push({ id: b.reduce((m, p) => Math.max(m, p.id), 0) + 1, user: me, text: x, mod: mod || '', parent: parent || null, at: new Date().toISOString(), likes: [] });
+    LS.write('margen_board', b); return boardView(me);
+  },
+  async like(t, id) {
+    await wait(); const me = userOf(t).user;
+    LS.write('margen_board', boardOf().map((p) => (p.id === id ? { ...p, likes: p.likes.includes(me) ? p.likes.filter((u) => u !== me) : [...p.likes, me] } : p)));
+    return boardView(me);
+  },
+  async delPost(t, id) {
+    await wait(); const me = userOf(t), p = boardOf().find((x) => x.id === id);
+    if (p && p.user !== me.user && !pub(me).admin) throw new ApiError('Solo puedes borrar lo que has publicado tú.');
+    LS.write('margen_board', boardOf().filter((x) => x.id !== id && x.parent !== id)); return boardView(me.user);
+  },
+  async chat(t, since) { await wait(); userOf(t); return chatView(since); },
+  async send(t, text, since) {
+    await wait(); const me = userOf(t).user, c = chatOf(), x = String(text || '').trim();
+    if (!x) throw new ApiError('Escribe algo antes de enviar.');
+    c.push({ id: c.reduce((m, p) => Math.max(m, p.id), 0) + 1, user: me, text: x.slice(0, 500), at: new Date().toISOString() });
+    LS.write('margen_chat', c); return chatView(since);
+  },
+  async delMsg(t, id) { await wait(); userOf(t); LS.write('margen_chat', chatOf().filter((m) => m.id !== id)); return { deleted: id }; },
+  async notes(t) { await wait(); userOf(t); return [...notesOf()].reverse(); },
+  async upload(t, f) {
+    await wait(); const me = userOf(t).user, n = notesOf();
+    n.push({ id: n.reduce((m, p) => Math.max(m, p.id), 0) + 1, user: me, title: f.title, mod: f.mod, name: f.name, type: f.type, size: Math.round((f.data || '').length * 0.75), url: '#', at: new Date().toISOString() });
+    LS.write('margen_notes', n); return [...n].reverse();
+  },
+  async delNote(t, id) { await wait(); userOf(t); LS.write('margen_notes', notesOf().filter((x) => x.id !== id)); return [...notesOf()].reverse(); },
 };
 
 export const api = isLocal ? local : remote;

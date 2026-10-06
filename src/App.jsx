@@ -2,6 +2,8 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { api, isLocal, token, cache, ApiError } from './api.js';
 import Resumen from './Charts.jsx';
 import { SLOTS, BREAK, WEEK, MODS, ORDER, DAYS, MONTHS, WD, WDL, key, parse, wdIdx } from './data.js';
+import { Icon, Gauge, Chip, Dot, Avatar, squarePhoto } from './ui.jsx';
+import Clase from './Clase.jsx';
 
 const INK = 'var(--ink)';
 const ST = {
@@ -11,7 +13,7 @@ const ST = {
   lost: ['Perdida', 'var(--bad)', 'var(--badSoft)'],
 };
 const RING = '0 0 0 1.5px var(--accent), 0 0 24px -6px var(--accent)';
-const pick = (on) => ({ background: on ? 'var(--accent)' : 'transparent', color: on ? 'var(--onAccent)' : INK });
+const pick2 = (on) => ({ background: on ? 'var(--accent)' : 'transparent', color: on ? 'var(--onAccent)' : INK });
 const tint = (c, k = 26) => `radial-gradient(130% 120% at 100% 0%, color-mix(in oklab, ${c} ${k}%, transparent), transparent 62%), var(--surface)`;
 const minOf = (d) => d.getHours() * 60 + d.getMinutes();
 const shortDate = (k) => { const d = parse(k); return `${d.getDate()} ${MONTHS[d.getMonth()].slice(0, 3)}`; };
@@ -56,48 +58,9 @@ function useTheme() {
 
 // ── Piezas ───────────────────────────────────────────────────────────────
 
-const ICONS = {
-  hoy: <path d="M3.5 10.5 12 3.5l8.5 7V20a1 1 0 0 1-1 1H15v-6H9v6H4.5a1 1 0 0 1-1-1z" />,
-  horario: <><rect x="3.5" y="4.5" width="17" height="16" rx="3.5" /><path d="M3.5 9.5h17M8 2.5v4M16 2.5v4" /></>,
-  faltas: <><path d="M20.5 13A8.5 8.5 0 1 1 11 3.5V13z" /><path d="M14.5 3.7A8.5 8.5 0 0 1 20.3 9.5h-5.8z" /></>,
-  perfil: <><circle cx="12" cy="8" r="4" /><path d="M4 20.5a8 8 0 0 1 16 0" /></>,
-  plus: <path d="M12 5v14M5 12h14" />,
-  minus: <path d="M5 12h14" />,
-  arrow: <path d="M5 12h14M13 6l6 6-6 6" />,
-  diag: <path d="M7 17 17 7M9 7h8v8" />,
-  back: <path d="M15 6l-6 6 6 6" />,
-  next: <path d="M9 6l6 6-6 6" />,
-  close: <path d="M6 6l12 12M18 6 6 18" />,
-  sun: <><circle cx="12" cy="12" r="4" /><path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4" /></>,
-  moon: <path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" />,
-  check: <path d="M5 12.5 10 17l9-10" />,
-};
-const Icon = ({ name, size = 22, stroke = 1.8 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{ICONS[name]}</svg>
-);
-
-// Anillo genérico: p entre 0 y 1
-function Gauge({ p, color, size = 104, stroke = 9, track = 'var(--surface2)', children, label }) {
-  const r = (size - stroke) / 2, c = 2 * Math.PI * r, h = size / 2, q = Math.max(0, Math.min(1, p));
-  return (
-    <div style={{ position: 'relative', width: size, height: size, flex: 'none' }} role={label ? 'img' : undefined} aria-label={label}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
-        <circle cx={h} cy={h} r={r} fill="none" stroke={track} strokeWidth={stroke} />
-        {q > 0 && <circle cx={h} cy={h} r={r} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round" strokeDasharray={`${c * q} ${c}`} transform={`rotate(-90 ${h} ${h})`} />}
-      </svg>
-      <div className="col" style={{ position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>{children}</div>
-    </div>
-  );
-}
-
 const Logo = ({ size = 44, radius = 14, font = 26, children = 'm' }) => (
   <div className="logo" aria-hidden="true" style={{ width: size, height: size, borderRadius: radius, fontSize: font }}>{children}</div>
 );
-const Chip = ({ s, size = 36 }) => (
-  <span className="tile" style={{ width: size, height: size, borderRadius: 999, background: MODS[s].c, color: MODS[s].fg, fontSize: Math.round(size * 0.3) }}>{s}</span>
-);
-const Dot = ({ c, s = 8 }) => <span style={{ width: s, height: s, borderRadius: 99, background: c, flex: 'none' }} />;
-
 // ── App ──────────────────────────────────────────────────────────────────
 
 export default function App() {
@@ -160,7 +123,8 @@ export default function App() {
       {screen === 'login' && <Login onDone={enter} goRegister={() => setScreen('register')} />}
       {screen === 'register' && <Register onDone={enter} goLogin={() => setScreen('login')} />}
       {screen === 'app' && user && (
-        <Main user={user} abs={abs} call={call} showToast={showToast} theme={theme} setTheme={setTheme} logout={logout} />
+        <Main user={user} setUser={setUser} abs={abs} call={call} showToast={showToast} theme={theme} setTheme={setTheme} logout={logout}
+          onSession={(m) => { leave(); showToast(m); }} />
       )}
       {toast && <Toast toast={toast} close={() => setToast(null)} wide={window.innerWidth >= 900} app={screen === 'app'} />}
     </>
@@ -276,15 +240,23 @@ function Register({ onDone, goLogin }) {
 
 // ── Contenedor ───────────────────────────────────────────────────────────
 
-const TABS = [['hoy', 'Hoy'], ['horario', 'Horario'], ['faltas', 'Faltas'], ['perfil', 'Perfil']];
+const TABS = [['hoy', 'Hoy'], ['horario', 'Horario'], ['faltas', 'Faltas'], ['clase', 'Clase']];
+const TITLES = { hoy: 'Hoy', horario: 'Horario', faltas: 'Faltas', clase: 'Clase', perfil: 'Perfil' };
 
-function Main({ user, abs, call, showToast, theme, setTheme, logout }) {
+function Main({ user, setUser, abs, call, showToast, theme, setTheme, logout, onSession }) {
   const now = useNow(), w = useWidth(), wide = w >= 900;
   const [tab, setTab] = useState('hoy');
   const [detail, setDetail] = useState(null);
   const [sheet, setSheet] = useState(null);
   const [day, setDay] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [people, setPeople] = useState([]);
+  const loadPeople = async () => { try { setPeople(await api.people(token.get())); } catch (e) { if (e.session) onSession(e.message); } };
+  // Cambios de perfil: se aplican al momento y se guardan en el servidor
+  const saveProfile = async (fn, ok) => {
+    try { const u = await fn(token.get()); setUser(u); setPeople((ps) => ps.map((x) => (x.me ? { ...x, ...u } : x))); if (ok) showToast(ok); }
+    catch (e) { if (e.session) onSession(e.message); else showToast(e.message || 'Algo ha fallado.'); }
+  };
 
   const tk = key(now), wd = wdIdx(now), min = minOf(now);
   const openDetail = (s) => () => { setTab('faltas'); setDetail(s); setSheet(null); window.scrollTo(0, 0); };
@@ -337,7 +309,7 @@ function Main({ user, abs, call, showToast, theme, setTheme, logout }) {
   const redCount = alerts.filter((a) => a.st !== 'warn').length;
   const first = user.name.split(' ')[0];
   const openSheet = () => setSheet({ date: tk, sel: [], tag: 'I' });
-  const title = detail ? detail : TABS.find(([id]) => id === tab)[1];
+  const title = detail ? detail : TITLES[tab];
   const toggleTheme = () => setTheme(theme === 'dark' ? 'light' : 'dark');
 
   const p = { abs, now, wd, min, tk, wide, stat, openDetail, cards };
@@ -360,6 +332,10 @@ function Main({ user, abs, call, showToast, theme, setTheme, logout }) {
               {id === 'faltas' && redCount > 0 && <span className="badge" aria-label={`${redCount} en rojo`}>{redCount}</span>}
             </button>
           ))}
+          <button className="side-btn" aria-current={tab === 'perfil' ? 'page' : undefined} onClick={() => go('perfil')}
+            style={{ background: tab === 'perfil' ? 'var(--surface2)' : 'transparent', color: tab === 'perfil' ? INK : 'var(--muted)' }}>
+            <Icon name="perfil" size={20} /><span>Perfil</span>
+          </button>
           <div style={{ flex: 1 }} />
           <button className="btn-main" onClick={openSheet}><span>Apuntar faltas</span><span className="go"><Icon name="plus" size={20} /></span></button>
           <button className="side-btn" style={{ background: 'transparent', color: 'var(--muted)', marginTop: 6 }} onClick={toggleTheme}>
@@ -373,7 +349,7 @@ function Main({ user, abs, call, showToast, theme, setTheme, logout }) {
           <div className="topbar">
             {detail
               ? <button className="round" aria-label="Volver a mis faltas" onClick={() => setDetail(null)}><Icon name="back" size={20} /></button>
-              : <button className="avatar" aria-label="Perfil" onClick={() => go('perfil')}>{(first[0] || '?').toUpperCase()}</button>}
+              : <Avatar person={user} size={44} onClick={() => go('perfil')} label="Tu perfil" />}
             <h1>{title}</h1>
             <button className="round" aria-label={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'} onClick={toggleTheme}><Icon name={theme === 'dark' ? 'sun' : 'moon'} size={20} /></button>
           </div>
@@ -381,7 +357,8 @@ function Main({ user, abs, call, showToast, theme, setTheme, logout }) {
           {tab === 'horario' && <Horario {...p} day={day} setDay={setDay} />}
           {tab === 'faltas' && !detail && <Faltas {...p} plus={plus} minus={minus} busy={busy} />}
           {tab === 'faltas' && detail && <Detalle st={stat(detail)} abs={abs} tk={tk} w={w} plus={plus} minus={minus} remove={remove} toggleTag={toggleTag} busy={busy} />}
-          {tab === 'perfil' && <Perfil user={user} theme={theme} setTheme={setTheme} logout={logout} />}
+          {tab === 'clase' && <Clase me={user} people={people} loadPeople={loadPeople} showToast={showToast} onSession={onSession} wide={wide} />}
+          {tab === 'perfil' && <Perfil user={user} theme={theme} setTheme={setTheme} logout={logout} saveProfile={saveProfile} showToast={showToast} />}
         </div>
       </main>
 
@@ -604,7 +581,7 @@ function Horario({ abs, now, wd, min, wide, day, setDay, openDetail }) {
           <div />
           {DAYS.map((n, d) => (
             <div key={n} style={{ background: colBg(d), borderRadius: '18px 18px 0 0', padding: '10px 5px 8px', display: 'flex', justifyContent: 'center' }}>
-              <span style={{ ...pick(d === wd), borderRadius: 999, padding: '7px 14px', fontWeight: 600, fontSize: 14 }}>{d === wd ? n + ' · hoy' : n}</span>
+              <span style={{ ...pick2(d === wd), borderRadius: 999, padding: '7px 14px', fontWeight: 600, fontSize: 14 }}>{d === wd ? n + ' · hoy' : n}</span>
             </div>
           ))}
           {SLOTS.map((sl, i) => (
@@ -790,32 +767,54 @@ function Detalle({ st, abs, w, plus, minus, remove, toggleTag, busy }) {
 
 // ── Perfil ───────────────────────────────────────────────────────────────
 
-function Perfil({ user, theme, setTheme, logout }) {
-  const first = user.name.split(' ')[0];
-  const Row = ({ label, children, last }) => (
+function Perfil({ user, theme, setTheme, logout, saveProfile, showToast }) {
+  const fileRef = useRef(null);
+  const [busy, setBusy] = useState(false);
+  const Row = ({ label, sub, children, last }) => (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '14px 0', borderBottom: last ? 0 : '1px solid var(--line)', fontSize: 15 }}>
-      <span style={{ fontWeight: 500 }}>{label}</span>{children}
+      <span className="col" style={{ gap: 2 }}><span style={{ fontWeight: 500 }}>{label}</span>{sub && <span className="muted" style={{ fontSize: 13, lineHeight: 1.35 }}>{sub}</span>}</span>{children}
     </div>
   );
+  const pick = async (e) => {
+    const f = e.target.files?.[0]; e.target.value = '';
+    if (!f) return;
+    setBusy(true);
+    try { const foto = await squarePhoto(f); await saveProfile((t) => api.setPhoto(t, foto), 'Foto actualizada'); }
+    catch { showToast('No se ha podido leer esa imagen. Prueba con otra.'); }
+    setBusy(false);
+  };
   return (
     <div className="col" style={{ gap: 18, maxWidth: 560, width: '100%', margin: '0 auto' }}>
       <section className="col" style={{ alignItems: 'center', gap: 10, padding: '8px 0 4px' }}>
-        <span className="avatar" style={{ width: 88, height: 88, fontSize: 36, cursor: 'default' }}>{(first[0] || '?').toUpperCase()}</span>
+        <input ref={fileRef} type="file" accept="image/*" hidden onChange={pick} />
+        <span style={{ position: 'relative' }}>
+          <Avatar person={user} size={96} onClick={() => fileRef.current.click()} label="Cambiar foto de perfil" />
+          <span className="round accent" aria-hidden="true" style={{ position: 'absolute', right: -4, bottom: -2, width: 34, height: 34, boxShadow: '0 0 0 3px var(--bg)' }}><Icon name="camera" size={17} /></span>
+        </span>
         <span className="col" style={{ alignItems: 'center', gap: 2 }}>
           <span className="disp" style={{ fontSize: 22 }}>{user.name}</span>
-          <span className="muted" style={{ fontSize: 14, fontWeight: 500 }}>@{user.user} · 2º MyP A</span>
+          <span className="muted" style={{ fontSize: 14, fontWeight: 500 }}>@{user.user} · 2º MyP A{user.admin ? ' · admin' : ''}</span>
+        </span>
+        <span style={{ display: 'flex', gap: 8 }}>
+          <button className="chip" disabled={busy} onClick={() => fileRef.current.click()}>{busy ? 'Subiendo…' : user.foto ? 'Cambiar foto' : 'Poner foto'}</button>
+          {user.foto && <button className="chip" disabled={busy} onClick={() => saveProfile((t) => api.setPhoto(t, ''), 'Foto quitada')}>Quitar</button>}
         </span>
       </section>
       <section className="panel" style={{ padding: '2px 16px' }}>
+        <Row label="Compartir mis faltas" sub="Tus compañeros verán cuántas horas llevas en cada módulo. Puedes quitarlo cuando quieras.">
+          <button role="switch" aria-checked={user.share} aria-label="Compartir mis faltas con la clase" onClick={() => saveProfile((t) => api.setShare(t, !user.share), user.share ? 'Ya no compartes tus faltas' : 'Compartes tus faltas con la clase')}
+            style={{ width: 52, height: 32, borderRadius: 999, border: 0, padding: 3, cursor: 'pointer', flex: 'none', background: user.share ? 'var(--ok)' : 'var(--surface2)', display: 'flex', justifyContent: user.share ? 'flex-end' : 'flex-start' }}>
+            <span style={{ width: 26, height: 26, borderRadius: 99, background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,.3)' }} />
+          </button>
+        </Row>
         <Row label="Tema">
           <span className="seg" style={{ gridTemplateColumns: 'auto auto' }}>
             {[['light', 'Claro'], ['dark', 'Oscuro']].map(([t, l]) => (
-              <button key={t} aria-pressed={theme === t} onClick={() => setTheme(t)} style={{ height: 36, padding: '0 14px', ...pick(theme === t) }}>{l}</button>
+              <button key={t} aria-pressed={theme === t} onClick={() => setTheme(t)} style={{ height: 36, padding: '0 14px', ...pick2(theme === t) }}>{l}</button>
             ))}
           </span>
         </Row>
         <Row label="Centro"><span className="muted" style={{ textAlign: 'right' }}>IES Las Salinas</span></Row>
-        <Row label="Aula"><span className="muted">221</span></Row>
         <Row label="Tutora" last><span className="muted" style={{ textAlign: 'right' }}>Natalia Salcedo López</span></Row>
       </section>
       <button onClick={logout} className="panel" style={{ height: 54, color: 'var(--badText)', fontSize: 16, fontWeight: 600, cursor: 'pointer' }}>Cerrar sesión</button>
@@ -872,7 +871,7 @@ function Sheet({ sheet, setSheet, abs, tk, wide, save, busy }) {
             </div>
             <div className="seg" role="radiogroup" aria-label="Etiqueta">
               {[['I', 'Injustificada'], ['J', 'Justificada']].map(([v, l]) => (
-                <button key={v} role="radio" aria-checked={sheet.tag === v} onClick={() => upd({ tag: v })} style={pick(sheet.tag === v)}>{l}</button>
+                <button key={v} role="radio" aria-checked={sheet.tag === v} onClick={() => upd({ tag: v })} style={pick2(sheet.tag === v)}>{l}</button>
               ))}
             </div>
             <button className="btn-main center" disabled={!n || busy} onClick={save}>
