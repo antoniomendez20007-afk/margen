@@ -21,16 +21,18 @@ export const WEEK = [
   ['MD', 'MSC', 'RPOE', 'RPOE', 'DEMC', 'IPE2'],
 ];
 
+// Colores validados con la skill dataviz: distinguibles con daltonismo (protanopia y deuteranopia)
+// y con contraste suficiente en modo claro y oscuro. El texto encima (fg) es el de más contraste.
 export const MODS = {
-  MD: { name: 'Marketing digital', short: 'Marketing digital', prof: 'José Manuel Oneto Mariscal', ps: 'J. M. Oneto', max: 26, c: 'oklch(0.52 0.23 285)', fg: '#fff' },
-  DEMC: { name: 'Diseño y elaboración de material de comunicación', short: 'Diseño mat. comunicación', prof: 'Aroa Fernández Jaén', ps: 'A. Fernández', max: 17, c: 'oklch(0.55 0.24 340)', fg: '#fff' },
-  TCIC: { name: 'Trabajo de campo en investigación comercial', short: 'Trabajo de campo', prof: 'María Mercedes Lobo López', ps: 'M. M. Lobo', max: 13, c: 'oklch(0.54 0.18 252)', fg: '#fff' },
-  MSC: { name: 'Medios y soportes de comunicación', short: 'Medios y soportes', prof: 'Natalia Salcedo López (tutora)', ps: 'N. Salcedo', max: 13, c: 'oklch(0.82 0.11 215)', fg: '#111' },
-  RPOE: { name: 'Relaciones públicas y organización de eventos', short: 'RR. PP. y eventos', prof: 'Juana María Partal Pancorbo', ps: 'J. M. Partal', max: 13, c: 'oklch(0.36 0.14 270)', fg: '#fff' },
-  LPS: { name: 'Lanzamiento de productos y servicios', short: 'Lanzamiento productos', prof: 'Juana María Partal Pancorbo', ps: 'J. M. Partal', max: 13, c: 'oklch(0.78 0.13 312)', fg: '#111' },
-  IPE2: { name: 'Itinerario personal para la empleabilidad II', short: 'Empleabilidad II', prof: 'Inmaculada García Ortega', ps: 'I. García', max: 13, c: 'oklch(0.48 0.09 210)', fg: '#fff' },
-  OGS: { name: 'Optativa', short: 'Optativa', prof: 'Natalia Salcedo López (tutora)', ps: 'N. Salcedo', max: 13, c: 'oklch(0.86 0.08 355)', fg: '#111' },
-  PIMP: { name: 'Proyecto intermodular', short: 'Proyecto intermodular', prof: 'Aroa Fernández Jaén', ps: 'A. Fernández', max: 8, c: 'var(--ink)', fg: 'var(--bg)' },
+  MD: { name: 'Marketing digital', short: 'Marketing digital', prof: 'José Manuel Oneto Mariscal', ps: 'J. M. Oneto', max: 26, c: '#c77f0c', fg: '#15110E' },
+  DEMC: { name: 'Diseño y elaboración de material de comunicación', short: 'Diseño mat. comunicación', prof: 'Aroa Fernández Jaén', ps: 'A. Fernández', max: 17, c: '#ae414b', fg: '#fff' },
+  TCIC: { name: 'Trabajo de campo en investigación comercial', short: 'Trabajo de campo', prof: 'María Mercedes Lobo López', ps: 'M. M. Lobo', max: 13, c: '#0590da', fg: '#15110E' },
+  MSC: { name: 'Medios y soportes de comunicación', short: 'Medios y soportes', prof: 'Natalia Salcedo López (tutora)', ps: 'N. Salcedo', max: 13, c: '#1d845b', fg: '#fff' },
+  RPOE: { name: 'Relaciones públicas y organización de eventos', short: 'RR. PP. y eventos', prof: 'Juana María Partal Pancorbo', ps: 'J. M. Partal', max: 13, c: '#8f59ab', fg: '#fff' },
+  LPS: { name: 'Lanzamiento de productos y servicios', short: 'Lanzamiento productos', prof: 'Juana María Partal Pancorbo', ps: 'J. M. Partal', max: 13, c: '#888322', fg: '#15110E' },
+  IPE2: { name: 'Itinerario personal para la empleabilidad II', short: 'Empleabilidad II', prof: 'Inmaculada García Ortega', ps: 'I. García', max: 13, c: '#0da1b1', fg: '#15110E' },
+  OGS: { name: 'Optativa', short: 'Optativa', prof: 'Natalia Salcedo López (tutora)', ps: 'N. Salcedo', max: 13, c: '#ae517b', fg: '#fff' },
+  PIMP: { name: 'Proyecto intermodular', short: 'Proyecto intermodular', prof: 'Aroa Fernández Jaén', ps: 'A. Fernández', max: 8, c: '#6378c5', fg: '#15110E' },
 };
 export const ORDER = ['MD', 'DEMC', 'TCIC', 'MSC', 'RPOE', 'LPS', 'IPE2', 'OGS', 'PIMP'];
 

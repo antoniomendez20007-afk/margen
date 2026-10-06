@@ -4,8 +4,8 @@ import { MONTHS, key } from './data.js';
 // Resumen visual de «Mis faltas»: reparto por módulo (anillo), margen gastado
 // de cada módulo (barras) y evolución por semanas (columnas).
 
-const card = { background: 'var(--surface)', borderRadius: 28, padding: 20, display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 };
-const title = { margin: 0, fontFamily: "'Bricolage Grotesque',sans-serif", fontWeight: 800, fontSize: 21, letterSpacing: '-0.02em' };
+const card = { background: 'var(--surface)', border: '1px solid var(--line)', boxShadow: 'var(--shadow)', borderRadius: 26, padding: 20, display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 };
+const title = { margin: 0, fontFamily: 'var(--display)', fontWeight: 600, fontSize: 21, letterSpacing: '-0.02em' };
 const sub = { margin: '2px 0 0', fontSize: 14, fontWeight: 600, color: 'var(--muted)' };
 
 export default function Resumen({ cards, abs, now, wide }) {
@@ -55,8 +55,8 @@ function Donut({ cards, abs }) {
               style={{ cursor: 'pointer', opacity: hover && hover !== g.c.s ? 0.35 : 1 }}
               onMouseEnter={() => setHover(g.c.s)} onMouseLeave={() => setHover(null)} onClick={() => setHover(hover === g.c.s ? null : g.c.s)} />
           ))}
-          <text x={C} y={C - 4} textAnchor="middle" style={{ fontFamily: "'Bricolage Grotesque',sans-serif", fontWeight: 800, fontSize: 46, fill: 'var(--ink)' }}>{h ? h.n : total}</text>
-          <text x={C} y={C + 22} textAnchor="middle" style={{ fontSize: 13, fontWeight: 800, fill: 'var(--muted)', letterSpacing: '.06em' }}>
+          <text x={C} y={C - 4} textAnchor="middle" style={{ fontFamily: 'var(--display)', fontWeight: 600, fontSize: 46, fill: 'var(--ink)' }}>{h ? h.n : total}</text>
+          <text x={C} y={C + 22} textAnchor="middle" style={{ fontSize: 13, fontWeight: 600, fill: 'var(--muted)', letterSpacing: '.06em' }}>
             {h ? `H EN ${h.s}` : total === 1 ? 'HORA' : 'HORAS'}
           </text>
         </svg>
@@ -65,7 +65,7 @@ function Donut({ cards, abs }) {
           {items.map((c) => (
             <li key={c.s}>
               <button onMouseEnter={() => setHover(c.s)} onMouseLeave={() => setHover(null)} onFocus={() => setHover(c.s)} onBlur={() => setHover(null)}
-                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, background: hover === c.s ? 'var(--surface2)' : 'transparent', border: 0, borderRadius: 10, padding: '5px 8px', cursor: 'default', fontSize: 15, fontWeight: 700, textAlign: 'left' }}>
+                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, background: hover === c.s ? 'var(--surface2)' : 'transparent', border: 0, borderRadius: 10, padding: '5px 8px', cursor: 'default', fontSize: 15, fontWeight: 600, textAlign: 'left' }}>
                 <span style={{ width: 14, height: 14, borderRadius: 4, background: c.m.c, flex: 'none', boxShadow: 'inset 0 0 0 1px rgba(0,0,0,.08)' }} />
                 <span style={{ flex: 1 }}>{c.s}</span>
                 <span style={{ color: 'var(--muted)', fontWeight: 600 }}>{Math.round((c.n / total) * 100)} %</span>
@@ -81,7 +81,7 @@ function Donut({ cards, abs }) {
             {total - j > 0 && <div style={{ flex: total - j, background: 'var(--ink)' }} />}
             {j > 0 && <div style={{ flex: j, background: 'repeating-linear-gradient(135deg,var(--muted) 0 3px,transparent 3px 6px)', boxShadow: 'inset 0 0 0 2px var(--muted)', borderRadius: 99 }} />}
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 14, fontWeight: 700 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 14, fontWeight: 600 }}>
             <span><b style={{ fontSize: 16 }}>{total - j}</b> injustificadas</span>
             <span><b style={{ fontSize: 16 }}>{j}</b> justificadas</span>
           </div>
@@ -103,7 +103,7 @@ function Bars({ cards }) {
         {cards.map((c) => (
           <div key={c.s} style={{ display: 'grid', gridTemplateColumns: '52px minmax(0,1fr) 62px', alignItems: 'center', gap: 10 }}
             title={`${c.m.name}: ${c.n} de ${c.m.max} h (${Math.round(c.pct * 100)} %)`}>
-            <span style={{ fontFamily: "'Bricolage Grotesque',sans-serif", fontWeight: 800, fontSize: 15 }}>{c.s}</span>
+            <span style={{ fontFamily: 'var(--display)', fontWeight: 600, fontSize: 15 }}>{c.s}</span>
             <div style={{ position: 'relative', height: 22 }} role="img" aria-label={`${c.s}: ${c.n} de ${c.m.max} horas, ${c.label}`}>
               <div style={{ position: 'absolute', inset: 0, borderRadius: 6, background: 'var(--surface2)' }} />
               <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: c.barW, minWidth: c.n ? 6 : 0, borderRadius: 6, background: c.sc }} />
@@ -115,13 +115,13 @@ function Bars({ cards }) {
         ))}
         <div style={{ display: 'grid', gridTemplateColumns: '52px minmax(0,1fr) 62px', gap: 10, marginTop: 2 }}>
           <span />
-          <div style={{ position: 'relative', height: 16, fontSize: 12, fontWeight: 700, color: 'var(--muted)' }}>
+          <div style={{ position: 'relative', height: 16, fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>
             <span style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)' }}>50 %</span>
             <span style={{ position: 'absolute', left: '80%', transform: 'translateX(-50%)' }}>80 %</span>
           </div>
         </div>
       </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px', fontSize: 13, fontWeight: 700 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px', fontSize: 13, fontWeight: 600 }}>
         {[['var(--ok)', 'Vas bien · menos del 50 %'], ['var(--warn)', 'Cuidado · 50–80 %'], ['var(--bad)', 'Al límite · más del 80 %']].map(([c, l]) => (
           <span key={l} style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 12, height: 12, borderRadius: 3, background: c }} />{l}</span>
         ))}
@@ -163,9 +163,9 @@ function Weeks({ abs, now }) {
         {weeks.map((w, i) => (
           <div key={i} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)} onClick={() => setHover(hover === i ? null : i)}
             style={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', gap: 4, cursor: 'pointer', borderRadius: 10, background: hover === i ? 'var(--todayCol)' : 'transparent' }}>
-            <span style={{ fontSize: 13, fontWeight: 800, minHeight: 16 }}>{w.n || ''}</span>
+            <span style={{ fontSize: 13, fontWeight: 600, minHeight: 16 }}>{w.n || ''}</span>
             <div style={{ width: '70%', maxWidth: 44, height: Math.max(w.n ? 6 : 2, (w.n / max) * H), borderRadius: '4px 4px 0 0',
-              background: w.n ? (w.current ? 'var(--ink)' : 'color-mix(in oklch, var(--ink) 55%, var(--surface))') : 'var(--surface2)' }} />
+              background: w.n ? (w.current ? 'var(--gold)' : 'color-mix(in oklab, var(--gold) 45%, var(--surface2))') : 'var(--surface2)' }} />
           </div>
         ))}
       </div>

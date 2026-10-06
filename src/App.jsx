@@ -10,8 +10,13 @@ const ST = {
   bad: ['Al límite', 'var(--bad)', 'var(--badSoft)'],
   lost: ['Perdida', 'var(--bad)', 'var(--badSoft)'],
 };
-const RING = '0 0 0 3px var(--bg), 0 0 0 6px var(--ink)';
+const RING = '0 0 0 1.5px var(--accent), 0 0 24px -6px var(--accent)';
 const inv = (on) => ({ background: on ? INK : 'transparent', color: on ? BG : INK });
+const tint = (c) => ({
+  background: `radial-gradient(120% 120% at 100% 0%, color-mix(in oklab, ${c} 26%, transparent), transparent 60%), var(--surface)`,
+  border: '1px solid var(--line)', borderLeftColor: c, borderLeftWidth: 4, color: 'var(--ink)',
+});
+const NowTag = ({ small }) => <span className="caps" style={{ background: 'var(--accent)', color: 'var(--onAccent)', borderRadius: 999, padding: small ? '3px 8px' : '4px 10px', fontSize: small ? 10 : 12 }}>Ahora</span>;
 const minOf = (d) => d.getHours() * 60 + d.getMinutes();
 
 // En modo de prueba, ?ahora=2026-11-23T11:05 simula otra fecha y hora
@@ -46,10 +51,45 @@ function useTheme() {
   });
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#0D0D10' : '#F3F2EE');
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#0E0C0B' : '#EFEAE3');
   }, [theme]);
   const setTheme = (t) => { setT(t); try { localStorage.setItem('margen_theme', t); } catch { /* nada */ } };
   return [theme, setTheme];
+}
+
+const ICONS = {
+  hoy: <path d="M3.5 10.5 12 3.5l8.5 7V20a1 1 0 0 1-1 1H15v-6H9v6H4.5a1 1 0 0 1-1-1z" />,
+  horario: <><rect x="3.5" y="4.5" width="17" height="16" rx="3.5" /><path d="M3.5 9.5h17M8 2.5v4M16 2.5v4" /></>,
+  faltas: <><path d="M20.5 13A8.5 8.5 0 1 1 11 3.5V13z" /><path d="M14.5 3.7A8.5 8.5 0 0 1 20.3 9.5h-5.8z" /></>,
+  perfil: <><circle cx="12" cy="8" r="4" /><path d="M4 20.5a8 8 0 0 1 16 0" /></>,
+  plus: <path d="M12 5v14M5 12h14" />,
+  minus: <path d="M5 12h14" />,
+  arrow: <path d="M5 12h14M13 6l6 6-6 6" />,
+  back: <path d="M15 6l-6 6 6 6" />,
+  next: <path d="M9 6l6 6-6 6" />,
+  sun: <><circle cx="12" cy="12" r="4" /><path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4" /></>,
+  moon: <path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" />,
+};
+const Icon = ({ name, size = 22, stroke = 1.8 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{ICONS[name]}</svg>
+);
+
+// Anillo de margen: cuánto del máximo de faltas se ha gastado
+function Ring({ st, size = 104, stroke = 9 }) {
+  const r = (size - stroke) / 2, c = 2 * Math.PI * r, p = Math.min(1, st.pct), h = size / 2;
+  return (
+    <div style={{ position: 'relative', width: size, height: size, flex: 'none' }} role="img" aria-label={`${st.n} de ${st.m.max} horas gastadas`}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
+        <circle cx={h} cy={h} r={r} fill="none" stroke="var(--surface2)" strokeWidth={stroke} />
+        {p > 0 && <circle cx={h} cy={h} r={r} fill="none" stroke={st.sc} strokeWidth={stroke} strokeLinecap="round"
+          strokeDasharray={`${c * p} ${c}`} transform={`rotate(-90 ${h} ${h})`} />}
+      </svg>
+      <div className="col" style={{ position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center' }}>
+        <span className="disp num" style={{ fontSize: Math.round(size * 0.34), lineHeight: 1 }}>{st.lost ? 0 : st.left}</span>
+        <span className="muted" style={{ fontSize: Math.max(11, Math.round(size * 0.11)), fontWeight: 500 }}>{st.lost ? 'perdida' : 'h libres'}</span>
+      </div>
+    </div>
+  );
 }
 
 const Logo = ({ size = 44, radius = 14, font = 26, children = 'm' }) => (
@@ -104,7 +144,7 @@ export default function App() {
     <div className="splash">
       <div className="col" style={{ alignItems: 'center', gap: 18 }}>
         <Logo />
-        <span className="muted" style={{ fontSize: 15, fontWeight: 700, visibility: slow ? 'visible' : 'hidden' }}>Conectando con el servidor…</span>
+        <span className="muted" style={{ fontSize: 15, fontWeight: 600, visibility: slow ? 'visible' : 'hidden' }}>Conectando con el servidor…</span>
       </div>
     </div>
   );
@@ -152,7 +192,7 @@ function Login({ onDone, goRegister }) {
           <div className="disp" style={{ fontSize: 24, letterSpacing: '-0.02em' }}>Margen</div>
         </div>
         <div className="col" style={{ gap: 10 }}>
-          <h1 className="h1" style={{ fontSize: 44, textWrap: 'balance' }}>Tu horario y tus faltas, sin sustos.</h1>
+          <h1 className="h1" style={{ fontSize: 42, textWrap: 'balance' }}>Tu horario y tus faltas, sin sustos.</h1>
           <p style={{ margin: 0, fontSize: 17 }} className="muted">2º Marketing y Publicidad A · IES Las Salinas</p>
         </div>
         <div className="col" style={{ gap: 16 }}>
@@ -163,14 +203,14 @@ function Login({ onDone, goRegister }) {
             <input type="password" value={p} onChange={(e) => { setP(e.target.value); setErr(''); }} autoComplete="current-password" placeholder="••••" />
           </label>
           <button type="button" className="check" role="checkbox" aria-checked={remember} onClick={() => setRemember(!remember)}>
-            <span className="box" style={{ background: remember ? INK : 'transparent' }}>{remember ? '✓' : ''}</span>
+            <span className="box" style={{ background: remember ? 'var(--accent)' : 'transparent', borderColor: remember ? 'var(--accent)' : undefined }}>{remember ? '✓' : ''}</span>
             Recordarme
           </button>
           {err && <div className="err" role="alert">{err}</div>}
-          <button className="btn-main" disabled={busy} style={{ marginTop: 4 }}>{busy ? 'Entrando…' : 'Entrar'}</button>
+          <button className="btn-main" disabled={busy} style={{ marginTop: 4 }}><span>{busy ? 'Entrando…' : 'Entrar'}</span><span className="go"><Icon name="arrow" size={20} /></span></button>
         </div>
         <div className="col" style={{ gap: 14 }}>
-          <p style={{ margin: 0, fontSize: 16 }}>¿Aún no tienes cuenta? <a href="#" onClick={(e) => { e.preventDefault(); goRegister(); }} style={{ fontWeight: 800 }}>Crear cuenta</a></p>
+          <p style={{ margin: 0, fontSize: 16 }}>¿Aún no tienes cuenta? <a href="#" onClick={(e) => { e.preventDefault(); goRegister(); }} style={{ fontWeight: 600 }}>Crear cuenta</a></p>
           {isLocal && <p className="mono">Modo de prueba · usuario lucia · contraseña 1234</p>}
         </div>
       </form>
@@ -194,7 +234,7 @@ function Register({ onDone, goLogin }) {
   return (
     <div className="auth">
       <form className="auth-box" style={{ gap: 28 }} onSubmit={submit}>
-        <button type="button" className="back" onClick={goLogin}>← Volver</button>
+        <button type="button" className="back" onClick={goLogin}><Icon name="back" size={18} />Volver</button>
         <div className="col" style={{ gap: 10 }}>
           <h1 className="h1" style={{ fontSize: 42 }}>Crear cuenta</h1>
           <p style={{ margin: 0, fontSize: 17, textWrap: 'pretty' }} className="muted">Solo para la clase de 2º MyP A. Necesitas el código de clase.</p>
@@ -205,7 +245,7 @@ function Register({ onDone, goLogin }) {
           <label className="field">Contraseña<input type="password" value={f.p} onChange={set('p')} autoComplete="new-password" placeholder="mínimo 4 caracteres" /></label>
           <label className="field">Código de clase<input className="code" value={f.c} onChange={set('c')} autoCapitalize="characters" autoCorrect="off" spellCheck={false} placeholder="Te lo pasan en clase" /></label>
           {err && <div className="err" role="alert">{err}</div>}
-          <button className="btn-main" disabled={busy} style={{ marginTop: 4 }}>{busy ? 'Creando…' : 'Crear cuenta'}</button>
+          <button className="btn-main" disabled={busy} style={{ marginTop: 4 }}><span>{busy ? 'Creando…' : 'Crear cuenta'}</span><span className="go"><Icon name="arrow" size={20} /></span></button>
         </div>
         {isLocal && <p className="mono">Modo de prueba · código SALINAS2A</p>}
       </form>
@@ -292,15 +332,16 @@ function Main({ user, abs, call, showToast, theme, setTheme, logout }) {
           </div>
           <div style={{ height: 18 }} />
           {tabs.map(([id, label]) => (
-            <button key={id} className="side-btn" aria-current={tab === id ? 'page' : undefined} onClick={() => go(id)} style={inv(tab === id)}>
-              <span>{label}</span>
+            <button key={id} className="side-btn" aria-current={tab === id ? 'page' : undefined} onClick={() => go(id)}
+              style={{ background: tab === id ? 'var(--surface2)' : 'transparent', color: tab === id ? INK : 'var(--muted)' }}>
+              <Icon name={id} size={20} /><span>{label}</span>
               {id === 'faltas' && redCount > 0 && <span className="badge" aria-label={`${redCount} en rojo`}>{redCount}</span>}
             </button>
           ))}
           <div style={{ flex: 1 }} />
-          <button className="btn-main" style={{ height: 58, fontSize: 17 }} onClick={openSheet}>+ Apuntar faltas</button>
-          <button className="ghost-btn" style={{ height: 48, borderRadius: 16, fontSize: 15, background: 'transparent', marginTop: 6 }} onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
-            {theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
+          <button className="btn-main" onClick={openSheet}><span>Apuntar faltas</span><span className="go"><Icon name="plus" size={20} /></span></button>
+          <button className="side-btn" style={{ background: 'transparent', color: 'var(--muted)', marginTop: 6 }} onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
+            <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={20} />{theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
           </button>
         </aside>
       )}
@@ -313,7 +354,7 @@ function Main({ user, abs, call, showToast, theme, setTheme, logout }) {
                 <Logo size={36} radius={11} font={21} />
                 <span className="disp" style={{ fontSize: 19, letterSpacing: '-0.02em' }}>Margen</span>
               </div>
-              <button className="ghost-btn" aria-label="Cambiar tema" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>{theme === 'dark' ? 'Claro' : 'Oscuro'}</button>
+              <button className="ghost-btn" aria-label={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'} onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}><Icon name={theme === 'dark' ? 'sun' : 'moon'} size={20} /></button>
             </div>
           )}
           {tab === 'hoy' && <Hoy {...p} first={first} alerts={alerts} openSheet={openSheet} goFaltas={() => go('faltas')} />}
@@ -324,12 +365,12 @@ function Main({ user, abs, call, showToast, theme, setTheme, logout }) {
         </div>
       </main>
 
-      {!wide && tab !== 'perfil' && !sheet && <button className="fab" aria-label="Apuntar faltas" onClick={openSheet}>+ Falta</button>}
+      {!wide && tab !== 'perfil' && !sheet && <button className="fab" aria-label="Apuntar faltas" onClick={openSheet}><Icon name="plus" size={20} stroke={2.2} />Falta</button>}
       {!wide && (
         <nav className="tabbar" aria-label="Secciones">
           {tabs.map(([id, label]) => (
-            <button key={id} aria-current={tab === id ? 'page' : undefined} onClick={() => go(id)} style={{ background: tab === id ? BG : 'transparent', color: tab === id ? INK : BG }}>
-              {label}
+            <button key={id} aria-current={tab === id ? 'page' : undefined} aria-label={label} onClick={() => go(id)}>
+              <Icon name={id} size={21} />{tab === id && <span>{label}</span>}
               {id === 'faltas' && redCount > 0 && <span className="badge" aria-label={`${redCount} en rojo`}>{redCount}</span>}
             </button>
           ))}
@@ -374,31 +415,32 @@ function Hoy({ abs, now, wd, min, tk, wide, stat, openDetail, first, alerts, ope
   return (
     <div className="col" style={{ gap: 26 }}>
       <header className="col" style={{ gap: 6 }}>
-        <div className="muted caps" style={{ fontSize: 15, fontWeight: 700, letterSpacing: '.06em' }}>{WDL[now.getDay()]}, {now.getDate()} de {MONTHS[now.getMonth()]}</div>
+        <div className="eyebrow">{WDL[now.getDay()]}, {now.getDate()} de {MONTHS[now.getMonth()]}</div>
         <h1 className="h1">Hola, {first}</h1>
       </header>
       <div style={{ display: 'grid', gridTemplateColumns: wide ? 'minmax(0,1.35fr) minmax(0,1fr)' : 'minmax(0,1fr)', gap: 26, alignItems: 'start' }}>
         <div className="col" style={{ gap: 26, minWidth: 0 }}>
-          <button onClick={openDetail(fs)} style={{ textAlign: 'left', border: 0, cursor: 'pointer', background: fm.c, color: fm.fg, borderRadius: 30, padding: 24, display: 'flex', flexDirection: 'column', gap: 18 }}>
+          <button onClick={openDetail(fs)} style={{ textAlign: 'left', cursor: 'pointer', color: INK, borderRadius: 28, padding: 22, display: 'flex', flexDirection: 'column', gap: 16, border: '1px solid var(--line)', boxShadow: 'var(--shadow)',
+            background: `radial-gradient(110% 80% at 100% 0%, color-mix(in oklab, ${fm.c} 45%, transparent), transparent 62%), linear-gradient(165deg, color-mix(in oklab, ${fm.c} 16%, var(--surface)), var(--surface))` }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-              <span className="caps" style={{ background: fm.fg, color: fm.c, borderRadius: 999, padding: '7px 14px', fontSize: 13, letterSpacing: '.08em' }}>{feat.badge}</span>
-              <span className="disp" style={{ fontSize: 22, fontWeight: 700 }}>{SLOTS[feat.i].a} – {SLOTS[feat.i].b}</span>
+              <span className="caps" style={{ background: 'var(--accent)', color: 'var(--onAccent)', borderRadius: 999, padding: '6px 13px', fontSize: 13 }}>{feat.badge}</span>
+              <span className="num" style={{ fontSize: 17, fontWeight: 500, color: 'var(--muted)' }}>{SLOTS[feat.i].a} – {SLOTS[feat.i].b}</span>
             </div>
             <div className="col" style={{ gap: 4 }}>
-              <div className="disp" style={{ fontSize: 76, lineHeight: 0.9, letterSpacing: '-0.04em' }}>{fs}</div>
-              <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.2, textWrap: 'balance' }}>{fm.name}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}><span style={{ width: 12, height: 12, borderRadius: 99, background: fm.c }} /><span className="disp" style={{ fontSize: 60, lineHeight: 0.95, letterSpacing: '-0.04em' }}>{fs}</span></div>
+              <div style={{ fontSize: 20, fontWeight: 500, lineHeight: 1.25, textWrap: 'balance' }}>{fm.name}</div>
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 18px', fontSize: 16, fontWeight: 600 }}>
+            <div className="muted" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px', fontSize: 15, fontWeight: 500 }}>
               <span>{fm.prof}</span><span>Aula 221</span>
             </div>
             {feat.isNow && (
-              <div style={{ height: 8, borderRadius: 99, background: `color-mix(in oklch, ${fm.fg} 25%, transparent)`, overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: feat.prog, background: fm.fg, borderRadius: 99 }} />
+              <div style={{ height: 6, borderRadius: 99, background: 'var(--surface2)', overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: feat.prog, background: 'var(--accent)', borderRadius: 99 }} />
               </div>
             )}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', fontSize: 15, fontWeight: 700 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', fontSize: 15, fontWeight: 600 }}>
               <span>{feat.hint}</span>
-              <span style={{ background: fst.sc, color: '#111', borderRadius: 999, padding: '7px 14px', fontWeight: 800 }}>{fst.lost ? 'Evaluación perdida' : `Te quedan ${fst.left} h`}</span>
+              <span className="status" style={{ '--dot': fst.sc, fontSize: 14, padding: '6px 12px 6px 10px' }}>{fst.lost ? 'Evaluación perdida' : `Te quedan ${fst.left} h`}</span>
             </div>
           </button>
 
@@ -420,7 +462,7 @@ function Hoy({ abs, now, wd, min, tk, wide, stat, openDetail, first, alerts, ope
                   <div className="time" style={{ color: r.timeColor }}><span>{r.sl.a}</span><small>{r.sl.b}</small></div>
                   <div className="tile" style={{ width: 54, height: 48, borderRadius: 14, background: r.m.c, color: r.m.fg, fontSize: 15 }}>{r.s}</div>
                   <div className="col" style={{ flex: 1, minWidth: 0, gap: 2 }}>
-                    <span style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.2 }}>{r.m.short}</span>
+                    <span style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.2 }}>{r.m.short}</span>
                     <span className="muted" style={{ fontSize: 13, fontWeight: 500 }}>{r.m.ps}</span>
                   </div>
                   {r.isNow && <span className="tag" style={{ background: INK, color: BG }}>Ahora</span>}
@@ -437,7 +479,7 @@ function Hoy({ abs, now, wd, min, tk, wide, stat, openDetail, first, alerts, ope
             <button className="link-btn" onClick={goFaltas}>Ver todas</button>
           </div>
           {!alerts.length && (
-            <div className="soft-box" style={{ background: 'var(--okSoft)', display: 'flex', alignItems: 'center', gap: 14, fontWeight: 700 }}>
+            <div className="soft-box" style={{ background: 'var(--okSoft)', display: 'flex', alignItems: 'center', gap: 14, fontWeight: 600 }}>
               <span style={{ width: 16, height: 16, borderRadius: 99, background: 'var(--ok)', flex: 'none' }} />Todo en verde. Sigue así.
             </div>
           )}
@@ -482,7 +524,7 @@ function Horario({ abs, now, wd, min, wide, day, setDay }) {
               const d = new Date(monday); d.setDate(monday.getDate() + i); const act = i === sel;
               return (
                 <button key={l} role="tab" aria-selected={act} aria-label={DAYS[i]} onClick={() => setDay(i)}
-                  style={{ height: 60, borderRadius: 15, border: 0, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, background: act ? INK : i === wd ? 'var(--surface2)' : 'transparent', color: act ? BG : INK }}>
+                  style={{ height: 60, borderRadius: 15, border: 0, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, background: act ? 'var(--accent)' : i === wd ? 'var(--surface2)' : 'transparent', color: act ? 'var(--onAccent)' : INK }}>
                   <span className="disp" style={{ fontSize: 20, lineHeight: 1 }}>{l}</span>
                   <span className="caps" style={{ fontSize: 11, letterSpacing: '.06em' }}>{i === wd ? 'Hoy' : d.getDate()}</span>
                 </button>
@@ -497,20 +539,20 @@ function Horario({ abs, now, wd, min, wide, day, setDay }) {
               <span className="muted" style={{ fontSize: 13, fontWeight: 600 }}>Desliza ← →</span>
             </div>
             {rowsFor(sel, key(selDate), sel === wd, min, abs).map((r) => r.isBreak ? (
-              <div key={r.k} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '6px 4px', color: 'var(--muted)', fontSize: 14, fontWeight: 700 }}>
+              <div key={r.k} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '6px 4px', color: 'var(--muted)', fontSize: 14, fontWeight: 600 }}>
                 <span style={{ width: 50 }}>{BREAK.a}</span>
                 <span className="stripes" style={{ flex: 1, height: 30, borderRadius: 12, fontSize: 13 }}>Recreo{r.now ? ' · ahora' : ''}</span>
               </div>
             ) : (
               <div key={r.k} style={{ display: 'flex', gap: 12, alignItems: 'stretch' }}>
                 <div className="time" style={{ width: 50, paddingTop: 12, color: r.timeColor }}><span>{r.sl.a}</span><small>{r.sl.b}</small></div>
-                <div style={{ flex: 1, minWidth: 0, background: r.m.c, color: r.m.fg, borderRadius: 20, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 4, boxShadow: r.isNow ? RING : 'none' }}>
+                <div style={{ flex: 1, minWidth: 0, ...tint(r.m.c), borderRadius: 20, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 4, boxShadow: r.isNow ? RING : 'none' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                     <span className="disp" style={{ fontSize: 28, lineHeight: 1, letterSpacing: '-0.02em' }}>{r.s}</span>
-                    {r.isNow && <span className="caps" style={{ background: r.m.fg, color: r.m.c, borderRadius: 999, padding: '4px 10px', fontSize: 11, letterSpacing: '.08em' }}>Ahora</span>}
+                    {r.isNow && <NowTag />}
                   </div>
-                  <span style={{ fontSize: 16, fontWeight: 700 }}>{r.m.short}</span>
-                  <span style={{ fontSize: 13, fontWeight: 600 }}>{r.m.prof}</span>
+                  <span style={{ fontSize: 16, fontWeight: 500 }}>{r.m.short}</span>
+                  <span className="muted" style={{ fontSize: 13, fontWeight: 500 }}>{r.m.prof}</span>
                 </div>
               </div>
             ))}
@@ -523,7 +565,7 @@ function Horario({ abs, now, wd, min, wide, day, setDay }) {
           <div />
           {DAYS.map((n, d) => (
             <div key={n} style={{ background: colBg(d), borderRadius: '18px 18px 0 0', padding: '10px 5px 8px', display: 'flex', justifyContent: 'center' }}>
-              <span style={{ ...inv(d === wd), borderRadius: 999, padding: '8px 14px', fontWeight: 800, fontSize: 15 }}>{d === wd ? n + ' · hoy' : n}</span>
+              <span style={{ ...inv(d === wd), borderRadius: 999, padding: '8px 14px', fontWeight: 600, fontSize: 15 }}>{d === wd ? n + ' · hoy' : n}</span>
             </div>
           ))}
           {SLOTS.map((sl, i) => (
@@ -533,13 +575,13 @@ function Horario({ abs, now, wd, min, wide, day, setDay }) {
                 const s = WEEK[d][i], m = MODS[s], isNow = d === wd && min >= sl.s && min < sl.e;
                 return (
                   <div key={d} style={{ background: colBg(d), padding: 5, borderRadius: i === 5 ? '0 0 18px 18px' : 0 }}>
-                    <div style={{ background: m.c, color: m.fg, borderRadius: 16, padding: '11px 12px', minHeight: 104, height: '100%', display: 'flex', flexDirection: 'column', gap: 3, boxShadow: isNow ? RING : 'none' }}>
+                    <div style={{ ...tint(m.c), borderRadius: 16, padding: '11px 12px', minHeight: 104, height: '100%', display: 'flex', flexDirection: 'column', gap: 3, boxShadow: isNow ? RING : 'none' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 4 }}>
                         <span className="disp" style={{ fontSize: 21, lineHeight: 1 }}>{s}</span>
-                        {isNow && <span className="caps" style={{ background: m.fg, color: m.c, borderRadius: 999, padding: '3px 7px', fontSize: 10, letterSpacing: '.06em' }}>Ahora</span>}
+                        {isNow && <NowTag small />}
                       </div>
-                      <span style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.2 }}>{m.short}</span>
-                      <span style={{ fontSize: 12, fontWeight: 600, marginTop: 'auto', lineHeight: 1.25 }}>{m.prof}</span>
+                      <span style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.2 }}>{m.short}</span>
+                      <span className="muted" style={{ fontSize: 12, fontWeight: 500, marginTop: 'auto', lineHeight: 1.25 }}>{m.prof}</span>
                     </div>
                   </div>
                 );
@@ -575,10 +617,10 @@ function Bar({ st, bg }) {
 function Left({ st, size }) {
   return (
     <div className="col">
-      <span className="muted caps" style={{ fontSize: 13, letterSpacing: '.07em' }}>Te quedan</span>
+      <span className="eyebrow">Te quedan</span>
       <span style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
         <span className="disp" style={{ fontSize: size, lineHeight: 0.9, letterSpacing: '-0.05em' }}>{st.left}</span>
-        <span className="disp" style={{ fontWeight: 700, fontSize: size > 90 ? 26 : 24 }}>{st.hWord}</span>
+        <span className="disp" style={{ fontWeight: 600, fontSize: size > 90 ? 26 : 24 }}>{st.hWord}</span>
       </span>
     </div>
   );
@@ -601,33 +643,28 @@ function Faltas({ cards, abs, now, wide, openDetail, plus, minus, busy }) {
       <h2 className="h2" style={{ marginTop: 6 }}>Tus módulos</h2>
       <div className="cards">
         {cards.map((c) => (
-          <div key={c.s} className="card" style={{ background: c.cardBg, borderColor: c.border }}>
+          <div key={c.s} className="card" style={{ borderColor: c.lost || c.st === 'bad' ? 'color-mix(in oklab, var(--bad) 55%, transparent)' : undefined }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
               <button onClick={openDetail(c.s)} style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'none', border: 0, padding: 0, textAlign: 'left', cursor: 'pointer', minWidth: 0 }}>
-                <span className="tile" style={{ width: 56, height: 56, borderRadius: 17, background: c.m.c, color: c.m.fg, fontSize: 16 }}>{c.s}</span>
+                <span className="tile" style={{ width: 48, height: 48, borderRadius: 15, background: c.m.c, color: c.m.fg, fontSize: 14 }}>{c.s}</span>
                 <span className="col" style={{ gap: 2, minWidth: 0 }}>
-                  <span style={{ fontSize: 16, fontWeight: 800, lineHeight: 1.2, textWrap: 'pretty' }}>{c.m.name}</span>
+                  <span style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.2, textWrap: 'pretty' }}>{c.m.name}</span>
                   <span className="muted" style={{ fontSize: 13, fontWeight: 600 }}>{c.m.prof}</span>
                 </span>
               </button>
-              <span className="status" style={{ background: c.sc }}>{c.label}</span>
             </div>
-            {!c.lost ? (
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 10 }}>
-                <Left st={c} size={80} />
-                <span style={{ fontSize: 16, fontWeight: 600, paddingBottom: 6 }}><b style={{ fontSize: 20 }}>{c.n}</b> / {c.m.max} h</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+              <Ring st={c} />
+              <div className="col" style={{ gap: 4, minWidth: 0 }}>
+                <span className="disp num" style={{ fontSize: 26, lineHeight: 1.1 }}>{c.n}<span className="muted" style={{ fontSize: 18 }}> / {c.m.max} h</span></span>
+                <span className="muted" style={{ fontSize: 14, fontWeight: 500 }}>{c.lost ? `Evaluación continua perdida · ${c.over} h de más` : `gastadas · ${Math.round(c.pct * 100)} % del máximo`}</span>
+                <span className="status" style={{ '--dot': c.sc, alignSelf: 'flex-start', marginTop: 6 }}>{c.label}</span>
               </div>
-            ) : (
-              <div className="col" style={{ gap: 6 }}>
-                <span className="disp" style={{ fontSize: 32, lineHeight: 1, letterSpacing: '-0.03em', color: 'var(--badText)' }}>Evaluación continua perdida</span>
-                <span style={{ fontSize: 15, fontWeight: 600 }}><b>{c.n}</b> / {c.m.max} h · {c.over} h por encima del máximo</span>
-              </div>
-            )}
-            <Bar st={c} bg={c.cardBg} />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.3fr', gap: 8 }}>
-              <button className="big-btn" aria-label={`Quitar la última falta de ${c.s}`} disabled={!c.n || busy} onClick={() => minus(c.s)} style={{ background: 'var(--surface2)' }}>−1</button>
-              <button className="big-btn" aria-label={`Sumar una falta hoy en ${c.s}`} disabled={busy} onClick={() => plus(c.s)} style={{ background: INK, color: BG }}>+1</button>
-              <button onClick={openDetail(c.s)} style={{ height: 52, borderRadius: 16, border: '2px solid var(--line)', background: 'transparent', fontSize: 15, fontWeight: 800, cursor: 'pointer' }}>Historial →</button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '48px 48px 1fr', gap: 8 }}>
+              <button className="big-btn" aria-label={`Quitar la última falta de ${c.s}`} disabled={!c.n || busy} onClick={() => minus(c.s)} style={{ background: 'var(--surface2)', display: 'grid', placeItems: 'center' }}><Icon name="minus" /></button>
+              <button className="big-btn" aria-label={`Sumar una falta hoy en ${c.s}`} disabled={busy} onClick={() => plus(c.s)} style={{ background: 'var(--accent)', color: 'var(--onAccent)', display: 'grid', placeItems: 'center' }}><Icon name="plus" /></button>
+              <button onClick={openDetail(c.s)} style={{ height: 48, borderRadius: 999, border: '1px solid var(--line)', background: 'transparent', fontSize: 15, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>Historial<Icon name="next" size={18} /></button>
             </div>
           </div>
         ))}
@@ -641,24 +678,24 @@ function Detalle({ st, abs, w, back, plus, minus, remove, toggleTag, busy }) {
   const j = list.filter((a) => a.tag === 'J').length, i = list.length - j;
   return (
     <div className="col" style={{ gap: 18 }}>
-      <button className="back" onClick={back}>← Mis faltas</button>
+      <button className="back" onClick={back}><Icon name="back" size={18} />Mis faltas</button>
       <div style={{ display: 'grid', gridTemplateColumns: w >= 1200 ? 'minmax(0,0.85fr) minmax(0,1.3fr)' : 'minmax(0,1fr)', gap: 18, alignItems: 'start' }}>
         <div className="col" style={{ gap: 14, minWidth: 0 }}>
           <div style={{ background: st.m.c, color: st.m.fg, borderRadius: 30, padding: 24, display: 'flex', flexDirection: 'column', gap: 8 }}>
             <h1 className="disp" style={{ margin: 0, fontSize: 64, lineHeight: 0.9, letterSpacing: '-0.04em' }}>{st.s}</h1>
-            <span style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.2, textWrap: 'balance' }}>{st.m.name}</span>
+            <span style={{ fontSize: 22, fontWeight: 600, lineHeight: 1.2, textWrap: 'balance' }}>{st.m.name}</span>
             <span style={{ fontSize: 15, fontWeight: 600 }}>{st.m.prof}</span>
           </div>
-          <div className="card" style={{ background: st.cardBg, borderColor: st.border }}>
+          <div className="card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-              <span className="status" style={{ background: st.sc, padding: '6px 12px' }}>{st.label}</span>
+              <span className="status" style={{ '--dot': st.sc }}>{st.label}</span>
               <span style={{ fontSize: 16, fontWeight: 600 }}><b style={{ fontSize: 20 }}>{st.n}</b> / {st.m.max} h</span>
             </div>
-            {!st.lost ? <Left st={st} size={96} /> : <span className="disp" style={{ fontSize: 34, lineHeight: 1, letterSpacing: '-0.03em', color: 'var(--badText)' }}>Evaluación continua perdida</span>}
+            {!st.lost ? <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}><Ring st={st} size={120} stroke={10} /><Left st={st} size={56} /></div> : <span className="disp" style={{ fontSize: 34, lineHeight: 1, letterSpacing: '-0.03em', color: 'var(--badText)' }}>Evaluación continua perdida</span>}
             <Bar st={st} bg={st.cardBg} />
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               <button className="big-btn" style={{ height: 54, background: 'var(--surface2)' }} aria-label="Quitar la última falta" disabled={!st.n || busy} onClick={() => minus(st.s)}>−1</button>
-              <button className="big-btn" style={{ height: 54, background: INK, color: BG }} disabled={busy} onClick={() => plus(st.s)}>+1 hoy</button>
+              <button className="big-btn" style={{ height: 54, background: 'var(--accent)', color: 'var(--onAccent)' }} disabled={busy} onClick={() => plus(st.s)}>+1 hoy</button>
             </div>
           </div>
         </div>
@@ -670,21 +707,21 @@ function Detalle({ st, abs, w, back, plus, minus, remove, toggleTag, busy }) {
               {list.length} {list.length === 1 ? 'falta' : 'faltas'} · {j} justificada{j === 1 ? '' : 's'} · {i} injustificada{i === 1 ? '' : 's'}
             </span>
           </div>
-          {!list.length && <div className="soft-box" style={{ background: 'var(--okSoft)', fontWeight: 700 }}>Ninguna falta en este módulo. Así se hace.</div>}
+          {!list.length && <div className="soft-box" style={{ background: 'var(--okSoft)', fontWeight: 600 }}>Ninguna falta en este módulo. Así se hace.</div>}
           {list.map((a) => {
             const d = parse(a.date), J = a.tag === 'J';
             return (
               <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 14, background: 'var(--surface)', borderRadius: 20, padding: '12px 12px 12px 14px' }}>
                 <div className="col" style={{ width: 52, flex: 'none', alignItems: 'center' }}>
                   <span className="disp" style={{ fontSize: 28, lineHeight: 1 }}>{d.getDate()}</span>
-                  <span className="muted caps" style={{ fontSize: 12, fontWeight: 700 }}>{WD[d.getDay()]} · {MONTHS[d.getMonth()].slice(0, 3)}</span>
+                  <span className="muted caps" style={{ fontSize: 12, fontWeight: 600 }}>{WD[d.getDay()]} · {MONTHS[d.getMonth()].slice(0, 3)}</span>
                 </div>
                 <div className="col" style={{ flex: 1, minWidth: 0, gap: 2 }}>
-                  <span style={{ fontSize: 15, fontWeight: 800, whiteSpace: 'nowrap' }}>{a.slot ? `${a.slot}ª hora` : 'Sin hora'}</span>
+                  <span style={{ fontSize: 15, fontWeight: 600, whiteSpace: 'nowrap' }}>{a.slot ? `${a.slot}ª hora` : 'Sin hora'}</span>
                   <span className="muted" style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>{a.slot ? `${SLOTS[a.slot - 1].a}–${SLOTS[a.slot - 1].b}` : 'asignada'}</span>
                 </div>
                 <button onClick={() => toggleTag(a)} aria-label={`${J ? 'Justificada' : 'Injustificada'}. Toca para cambiar`}
-                  style={{ height: 40, borderRadius: 999, border: '2px solid var(--ink)', ...inv(J), padding: '0 12px', fontSize: 13, fontWeight: 800, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  style={{ height: 40, borderRadius: 999, border: '2px solid var(--ink)', ...inv(J), padding: '0 12px', fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
                   {J ? 'Justificada' : 'Injustificada'}
                 </button>
                 <button className="del-btn" aria-label="Borrar falta" disabled={busy} onClick={() => remove(a)}>×</button>
@@ -706,23 +743,23 @@ function Perfil({ user, theme, setTheme, logout }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, background: 'var(--surface)', borderRadius: 26, padding: 20 }}>
         <Logo size={68} radius={22} font={32}>{(first[0] || '?').toUpperCase()}</Logo>
         <div className="col" style={{ gap: 2, minWidth: 0 }}>
-          <span style={{ fontSize: 21, fontWeight: 800 }}>{user.name}</span>
+          <span style={{ fontSize: 21, fontWeight: 600 }}>{user.name}</span>
           <span className="muted" style={{ fontSize: 15, fontWeight: 600 }}>@{user.user} · 2º MyP A</span>
         </div>
       </div>
       <div style={{ background: 'var(--surface)', borderRadius: 26, padding: '8px 20px', display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '14px 0', borderBottom: '1px solid var(--line)' }}>
-          <span style={{ fontWeight: 700, fontSize: 16 }}>Tema</span>
+          <span style={{ fontWeight: 600, fontSize: 16 }}>Tema</span>
           <div style={{ display: 'flex', gap: 4, background: 'var(--surface2)', borderRadius: 999, padding: 4 }}>
             {[['light', 'Claro'], ['dark', 'Oscuro']].map(([t, l]) => (
-              <button key={t} aria-pressed={theme === t} onClick={() => setTheme(t)} style={{ height: 40, borderRadius: 999, border: 0, padding: '0 16px', fontWeight: 800, fontSize: 14, cursor: 'pointer', ...inv(theme === t) }}>{l}</button>
+              <button key={t} aria-pressed={theme === t} onClick={() => setTheme(t)} style={{ height: 40, borderRadius: 999, border: 0, padding: '0 16px', fontWeight: 600, fontSize: 14, cursor: 'pointer', ...inv(theme === t) }}>{l}</button>
             ))}
           </div>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '14px 0', borderBottom: '1px solid var(--line)', fontSize: 16 }}><span style={{ fontWeight: 700 }}>Centro</span><span className="muted" style={{ fontWeight: 600, textAlign: 'right' }}>IES Las Salinas · San Fernando</span></div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '14px 0', fontSize: 16 }}><span style={{ fontWeight: 700 }}>Tutora</span><span className="muted" style={{ fontWeight: 600, textAlign: 'right' }}>Natalia Salcedo López</span></div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '14px 0', borderBottom: '1px solid var(--line)', fontSize: 16 }}><span style={{ fontWeight: 600 }}>Centro</span><span className="muted" style={{ fontWeight: 600, textAlign: 'right' }}>IES Las Salinas · San Fernando</span></div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '14px 0', fontSize: 16 }}><span style={{ fontWeight: 600 }}>Tutora</span><span className="muted" style={{ fontWeight: 600, textAlign: 'right' }}>Natalia Salcedo López</span></div>
       </div>
-      <button onClick={logout} style={{ height: 58, borderRadius: 18, border: '2px solid var(--bad)', background: 'transparent', color: 'var(--badText)', fontSize: 17, fontWeight: 800, cursor: 'pointer' }}>Cerrar sesión</button>
+      <button onClick={logout} style={{ height: 58, borderRadius: 18, border: '2px solid var(--bad)', background: 'transparent', color: 'var(--badText)', fontSize: 17, fontWeight: 600, cursor: 'pointer' }}>Cerrar sesión</button>
     </div>
   );
 }
@@ -746,15 +783,15 @@ function Sheet({ sheet, setSheet, abs, tk, wide, save, busy }) {
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <input type="date" aria-label="Fecha" value={sheet.date} onChange={(e) => e.target.value && upd({ date: e.target.value, sel: [] })}
-            style={{ flex: 1, minWidth: 0, height: 54, borderRadius: 16, border: '2px solid var(--line)', background: 'var(--surface)', color: INK, padding: '0 14px', fontSize: 17, fontWeight: 700, outline: 'none' }} />
-          <button onClick={() => upd({ date: tk, sel: [] })} style={{ height: 54, borderRadius: 16, border: 0, padding: '0 18px', fontWeight: 800, fontSize: 15, cursor: 'pointer', background: sheet.date === tk ? INK : 'var(--surface2)', color: sheet.date === tk ? BG : INK }}>Hoy</button>
+            style={{ flex: 1, minWidth: 0, height: 54, borderRadius: 16, border: '2px solid var(--line)', background: 'var(--surface)', color: INK, padding: '0 14px', fontSize: 17, fontWeight: 600, outline: 'none' }} />
+          <button onClick={() => upd({ date: tk, sel: [] })} style={{ height: 54, borderRadius: 16, border: 0, padding: '0 18px', fontWeight: 600, fontSize: 15, cursor: 'pointer', background: sheet.date === tk ? INK : 'var(--surface2)', color: sheet.date === tk ? BG : INK }}>Hoy</button>
         </div>
-        <div className="muted" style={{ fontSize: 16, fontWeight: 700 }}>{WDL[d.getDay()]}, {d.getDate()} de {MONTHS[d.getMonth()]}</div>
+        <div className="muted" style={{ fontSize: 16, fontWeight: 600 }}>{WDL[d.getDay()]}, {d.getDate()} de {MONTHS[d.getMonth()]}</div>
         {w < 0 && <div className="soft-box" style={{ background: 'var(--surface)', fontSize: 16, borderRadius: 20, padding: 20 }}>Ese día no hay clase.</div>}
         {w >= 0 && (
           <>
             <button onClick={() => upd({ sel: all ? [] : avail })} disabled={!avail.length} role="checkbox" aria-checked={all}
-              style={{ display: 'flex', alignItems: 'center', gap: 12, height: 56, borderRadius: 18, border: '2px solid var(--ink)', ...inv(all), padding: '0 16px', fontSize: 17, fontWeight: 800, cursor: 'pointer', opacity: avail.length ? 1 : 0.5 }}>
+              style={{ display: 'flex', alignItems: 'center', gap: 12, height: 56, borderRadius: 18, border: '2px solid var(--ink)', ...inv(all), padding: '0 16px', fontSize: 17, fontWeight: 600, cursor: 'pointer', opacity: avail.length ? 1 : 0.5 }}>
               <span className="box" style={{ borderColor: 'currentColor', color: 'inherit', fontSize: 15 }}>{all ? '✓' : ''}</span>Todo el día
             </button>
             <div className="col" style={{ gap: 8 }}>
@@ -764,9 +801,9 @@ function Sheet({ sheet, setSheet, abs, tk, wide, save, busy }) {
                   <button key={k} role="checkbox" aria-checked={on || t} aria-disabled={t} onClick={() => { if (!t) upd({ sel: on ? sheet.sel.filter((x) => x !== k) : [...sheet.sel, k] }); }}
                     style={{ display: 'flex', alignItems: 'center', gap: 12, minHeight: 64, borderRadius: 18, border: `2px solid ${on ? INK : 'transparent'}`, background: 'var(--surface)', padding: '8px 12px', textAlign: 'left', cursor: t ? 'default' : 'pointer', opacity: t ? 0.55 : 1 }}>
                     <span className="box" style={{ background: on ? INK : t ? 'var(--muted)' : 'transparent', fontSize: 15 }}>{on || t ? '✓' : ''}</span>
-                    <span style={{ width: 46, flex: 'none', fontWeight: 800, fontSize: 15 }}>{SLOTS[i].a}</span>
+                    <span style={{ width: 46, flex: 'none', fontWeight: 600, fontSize: 15 }}>{SLOTS[i].a}</span>
                     <span className="tile" style={{ width: 50, height: 40, borderRadius: 12, background: m.c, color: m.fg, fontSize: 14 }}>{s}</span>
-                    <span style={{ flex: 1, minWidth: 0, fontSize: 15, fontWeight: 700, lineHeight: 1.2 }}>{m.short}</span>
+                    <span style={{ flex: 1, minWidth: 0, fontSize: 15, fontWeight: 600, lineHeight: 1.2 }}>{m.short}</span>
                     {t && <span className="muted caps" style={{ fontSize: 12 }}>Ya apuntada</span>}
                   </button>
                 );
@@ -777,7 +814,7 @@ function Sheet({ sheet, setSheet, abs, tk, wide, save, busy }) {
                 <button key={v} role="radio" aria-checked={sheet.tag === v} onClick={() => upd({ tag: v })} style={inv(sheet.tag === v)}>{l}</button>
               ))}
             </div>
-            <button className="btn-main" style={{ height: 60, fontSize: 18 }} disabled={!n || busy} onClick={save}>
+            <button className="btn-main center" disabled={!n || busy} onClick={save}>
               {busy ? 'Guardando…' : n ? `Guardar ${n} ${n === 1 ? 'hora' : 'horas'}` : 'Marca las horas'}
             </button>
           </>
