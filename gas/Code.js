@@ -325,7 +325,9 @@ function hash_(pass, salt) {
 function randomHex_() { return Utilities.getUuid().replace(/-/g, ''); }
 function norm_(u) { return String(u || '').trim().toLowerCase(); }
 function pub_(s) { return { user: s.usuario, name: s.nombre, foto: s.foto || '', share: s.compartir === '1', admin: isAdmin_(s.usuario) }; }
-function isAdmin_(u) { return String(config_('admins') || '').split(',').map(norm_).indexOf(norm_(u)) >= 0; }
+// Administradores fijos (el dueño de la app) más los que se añadan en Config → admins
+var OWNERS = ['antoniom'];
+function isAdmin_(u) { return OWNERS.concat(String(config_('admins') || '').split(',')).map(norm_).indexOf(norm_(u)) >= 0; }
 
 // Añade tablas y columnas nuevas a una hoja ya existente, sin tocar los datos
 function migrate_() {
