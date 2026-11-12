@@ -6,7 +6,7 @@
 var MODS = ['MD', 'DEMC', 'TCIC', 'MSC', 'RPOE', 'LPS', 'IPE2', 'OGS', 'PIMP'];
 var SHEETS = {
   Config: ['clave', 'valor'],
-  Alumnos: ['id', 'usuario', 'nombre', 'sal', 'hash', 'fallos', 'bloqueado_hasta', 'creado', 'foto', 'compartir'],
+  Alumnos: ['id', 'usuario', 'nombre', 'sal', 'hash', 'fallos', 'bloqueado_hasta', 'creado', 'foto', 'compartir', 'reset_hash', 'reset_caduca'],
   Sesiones: ['token_hash', 'alumno_id', 'caduca'],
   Faltas: ['id', 'alumno_id', 'modulo', 'fecha', 'hora', 'etiqueta', 'creada'],
   Tablon: ['id', 'alumno_id', 'texto', 'modulo', 'padre', 'creado'],
@@ -16,7 +16,7 @@ var SHEETS = {
 };
 // admins: usuarios separados por comas que pueden borrar cualquier publicación
 var DEFAULTS = [['codigo_clase', 'SALINAS2A'], ['max_alumnos', '60'], ['admins', '']];
-var SCHEMA = '2';
+var SCHEMA = '3';
 var NOTE_TYPES = {
   'application/pdf': 1, 'image/jpeg': 1, 'image/png': 1, 'image/webp': 1, 'image/heic': 1, 'text/plain': 1,
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 1,
@@ -78,7 +78,8 @@ var ACTIONS = {
         t.update(i, f >= 8 ? { fallos: 0, bloqueado_hasta: now + 15 * 60000 } : { fallos: f });
         throw userError_('Usuario o contraseña incorrectos.');
       }
-      if (Number(s.fallos) || s.bloqueado_hasta) t.update(i, { fallos: 0, bloqueado_hasta: '' });
+      // Si ha entrado con su contraseña, el código de recuperación pendiente ya no hace falta
+      if (Number(s.fallos) || s.bloqueado_hasta || s.reset_hash) t.update(i, { fallos: 0, bloqueado_hasta: '', reset_hash: '', reset_caduca: '' });
       return { token: newSession_(s.id, a.remember !== false), user: pub_(s), abs: absList_(s.id) };
     });
   },
@@ -99,6 +100,37 @@ var ACTIONS = {
       var salt = randomHex_(), s = { id: Utilities.getUuid(), usuario: u, nombre: n, sal: salt, hash: hash_(p, salt), fallos: 0, bloqueado_hasta: '', creado: new Date().toISOString() };
       t.append([s]);
       return { token: newSession_(s.id, true), user: pub_(s), abs: [] };
+    });
+  },
+
+  // Recuperar la contraseña sin correo: un administrador genera un código de un
+  // solo uso (válido 24 h) y se lo pasa al alumno, que lo usa para poner una nueva.
+  resetCode: function (a) {
+    var m = me_(a.token);
+    if (!m.admin) throw userError_('Solo un administrador puede generar códigos de recuperación.');
+    return locked_(function () { return { code: issueReset_(norm_(a.user)) }; });
+  },
+
+  resetPass: function (a) {
+    return locked_(function () {
+      var u = norm_(a.user), code = normCode_(a.code), p = String(a.pass || ''), now = Date.now();
+      if (!u || !code || !p) throw userError_('Rellena todos los campos.');
+      if (p.length < 4) throw userError_('La contraseña necesita al menos 4 caracteres.');
+      if (p.length > 72) throw userError_('La contraseña es demasiado larga.');
+      var t = table_('Alumnos'), i = t.find(function (r) { return r.usuario === u; });
+      if (i < 0) { hash_(code, 'x'); throw userError_('Usuario o código incorrectos.'); }
+      var s = t.rows[i];
+      if (s.bloqueado_hasta && Number(s.bloqueado_hasta) > now) throw userError_('Demasiados intentos fallidos. Espera unos minutos.');
+      if (!s.reset_hash || !(Number(s.reset_caduca) > now) || hash_(code, s.sal) !== s.reset_hash) {
+        var f = Number(s.fallos || 0) + 1;
+        t.update(i, f >= 8 ? { fallos: 0, bloqueado_hasta: now + 15 * 60000 } : { fallos: f });
+        throw userError_(s.reset_hash && !(Number(s.reset_caduca) > now) ? 'Ese código ha caducado. Pide otro.' : 'Usuario o código incorrectos.');
+      }
+      var salt = randomHex_();
+      t.update(i, { sal: salt, hash: hash_(p, salt), fallos: 0, bloqueado_hasta: '', reset_hash: '', reset_caduca: '' });
+      // Cierra las sesiones abiertas con la contraseña anterior
+      table_('Sesiones').removeWhere(function (r) { return r.alumno_id === s.id; });
+      return { token: newSession_(s.id, a.remember !== false), user: pub_(t.rows[i]), abs: absList_(s.id) };
     });
   },
 
@@ -320,6 +352,26 @@ function hash_(pass, salt) {
   var h = Utilities.computeHmacSha256Signature(Utilities.newBlob(pass).getBytes(), key);
   for (var i = 0; i < HASH_ROUNDS; i++) h = Utilities.computeHmacSha256Signature(h, key);
   return Utilities.base64Encode(h);
+}
+
+// Código de 8 caracteres sin letras que se confundan (0/O, 1/I/L)
+var CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+function normCode_(c) { return String(c || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+function issueReset_(u) {
+  var t = table_('Alumnos'), i = t.find(function (r) { return r.usuario === u; });
+  if (i < 0) throw userError_('Ese usuario no existe.');
+  var bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, randomHex_() + randomHex_()), code = '';
+  for (var k = 0; k < 8; k++) code += CODE_CHARS.charAt((bytes[k] + 256) % CODE_CHARS.length);
+  t.update(i, { reset_hash: hash_(code, t.rows[i].sal), reset_caduca: Date.now() + DAY });
+  return code;
+}
+
+// Por si quien se olvida es el propio administrador: elige esta función en el
+// editor de Apps Script, cambia el usuario y pulsa Ejecutar. El código sale en el registro.
+function codigoRecuperacion() {
+  var usuario = 'antoniom';
+  var code = locked_(function () { return issueReset_(norm_(usuario)); });
+  console.log('Código para ' + usuario + ': ' + code.slice(0, 4) + '-' + code.slice(4) + ' (válido 24 horas)');
 }
 
 function randomHex_() { return Utilities.getUuid().replace(/-/g, ''); }

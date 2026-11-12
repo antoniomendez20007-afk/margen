@@ -21,19 +21,24 @@ export const WEEK = [
   ['MD', 'MSC', 'RPOE', 'RPOE', 'DEMC', 'IPE2'],
 ];
 
+// max = horas de falta con las que se pierde la evaluación continua (20 % de las horas del módulo)
+// aviso = horas con las que el centro avisa (15 %). Fuente: «Umbral de ausencias 2º MAPU».
 // Colores validados con la skill dataviz: distinguibles con daltonismo (protanopia y deuteranopia)
 // y con contraste suficiente en modo claro y oscuro. El texto encima (fg) es el de más contraste.
 export const MODS = {
-  MD: { name: 'Marketing digital', short: 'Marketing digital', prof: 'José Manuel Oneto Mariscal', ps: 'J. M. Oneto', max: 26, c: '#c77f0c', fg: '#15110E' },
-  DEMC: { name: 'Diseño y elaboración de material de comunicación', short: 'Diseño mat. comunicación', prof: 'Aroa Fernández Jaén', ps: 'A. Fernández', max: 17, c: '#ae414b', fg: '#fff' },
-  TCIC: { name: 'Trabajo de campo en investigación comercial', short: 'Trabajo de campo', prof: 'María Mercedes Lobo López', ps: 'M. M. Lobo', max: 13, c: '#0590da', fg: '#15110E' },
-  MSC: { name: 'Medios y soportes de comunicación', short: 'Medios y soportes', prof: 'Natalia Salcedo López (tutora)', ps: 'N. Salcedo', max: 13, c: '#1d845b', fg: '#fff' },
-  RPOE: { name: 'Relaciones públicas y organización de eventos', short: 'RR. PP. y eventos', prof: 'Juana María Partal Pancorbo', ps: 'J. M. Partal', max: 13, c: '#8f59ab', fg: '#fff' },
-  LPS: { name: 'Lanzamiento de productos y servicios', short: 'Lanzamiento productos', prof: 'Juana María Partal Pancorbo', ps: 'J. M. Partal', max: 13, c: '#888322', fg: '#15110E' },
-  IPE2: { name: 'Itinerario personal para la empleabilidad II', short: 'Empleabilidad II', prof: 'Inmaculada García Ortega', ps: 'I. García', max: 13, c: '#0da1b1', fg: '#15110E' },
-  OGS: { name: 'Optativa', short: 'Optativa', prof: 'Natalia Salcedo López (tutora)', ps: 'N. Salcedo', max: 13, c: '#ae517b', fg: '#fff' },
-  PIMP: { name: 'Proyecto intermodular', short: 'Proyecto intermodular', prof: 'Aroa Fernández Jaén', ps: 'A. Fernández', max: 8, c: '#6378c5', fg: '#15110E' },
+  MD: { name: 'Marketing digital', short: 'Marketing digital', prof: 'José Manuel Oneto Mariscal', ps: 'J. M. Oneto', max: 42, aviso: 32, c: '#c77f0c', fg: '#15110E' },
+  DEMC: { name: 'Diseño y elaboración de material de comunicación', short: 'Diseño mat. comunicación', prof: 'Aroa Fernández Jaén', ps: 'A. Fernández', max: 28, aviso: 21, c: '#ae414b', fg: '#fff' },
+  TCIC: { name: 'Trabajo de campo en investigación comercial', short: 'Trabajo de campo', prof: 'María Mercedes Lobo López', ps: 'M. M. Lobo', max: 21, aviso: 16, c: '#0590da', fg: '#15110E' },
+  MSC: { name: 'Medios y soportes de comunicación', short: 'Medios y soportes', prof: 'Natalia Salcedo López (tutora)', ps: 'N. Salcedo', max: 21, aviso: 16, c: '#1d845b', fg: '#fff' },
+  RPOE: { name: 'Relaciones públicas y organización de eventos', short: 'RR. PP. y eventos', prof: 'Juana María Partal Pancorbo', ps: 'J. M. Partal', max: 21, aviso: 16, c: '#8f59ab', fg: '#fff' },
+  LPS: { name: 'Lanzamiento de productos y servicios', short: 'Lanzamiento productos', prof: 'Juana María Partal Pancorbo', ps: 'J. M. Partal', max: 21, aviso: 16, c: '#888322', fg: '#15110E' },
+  IPE2: { name: 'Itinerario personal para la empleabilidad II', short: 'Empleabilidad II', prof: 'Inmaculada García Ortega', ps: 'I. García', max: 21, aviso: 16, c: '#0da1b1', fg: '#15110E' },
+  OGS: { name: 'El poder de la marca en el mundo digital (optativa)', short: 'Poder de la marca', prof: 'Natalia Salcedo López (tutora)', ps: 'N. Salcedo', max: 21, aviso: 16, c: '#ae517b', fg: '#fff' },
+  PIMP: { name: 'Proyecto intermodular', short: 'Proyecto intermodular', prof: 'Aroa Fernández Jaén', ps: 'A. Fernández', max: 14, aviso: 11, c: '#6378c5', fg: '#15110E' },
 };
+// Estado de un módulo según las horas gastadas: se pierde al pasar de max (más del 20 %),
+// «al límite» desde el aviso oficial (15 %) y «cuidado» desde la mitad del margen.
+export const level = (s, n) => { const m = MODS[s]; return n > m.max ? 'lost' : n >= m.aviso ? 'bad' : n >= m.max / 2 ? 'warn' : 'ok'; };
 export const ORDER = ['MD', 'DEMC', 'TCIC', 'MSC', 'RPOE', 'LPS', 'IPE2', 'OGS', 'PIMP'];
 
 export const DAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];

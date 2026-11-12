@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, token, ApiError } from './api.js';
-import { MODS, ORDER } from './data.js';
+import { MODS, ORDER, level } from './data.js';
 import { Icon, Gauge, Chip, Dot, Avatar, timeAgo } from './ui.jsx';
 
 // Pestaña «Clase»: tablón, chat de grupo, apuntes compartidos y compañeros.
@@ -38,7 +38,7 @@ export default function Clase({ me, people, loadPeople, showToast, onSession, wi
       {sec === 'tablon' && <Tablon {...p} />}
       {sec === 'chat' && <Chat {...p} />}
       {sec === 'apuntes' && <Apuntes {...p} />}
-      {sec === 'gente' && <Gente people={people} me={me} />}
+      {sec === 'gente' && <Gente people={people} me={me} call={call} />}
     </div>
   );
 }
@@ -326,21 +326,28 @@ function Apuntes({ me, person, call, showToast }) {
 
 // ── Compañeros ───────────────────────────────────────────────────────────
 
-function Gente({ people, me }) {
-  const [sel, setSel] = useState(null);
+function Gente({ people, me, call }) {
+  const [sel, setSel] = useState(null), [code, setCode] = useState(null), [busy, setBusy] = useState(false);
+  const open = (p) => { setSel(p); setCode(null); };
+  const genCode = async () => {
+    setBusy(true);
+    const r = await call((t) => api.resetCode(t, sel.user));
+    setBusy(false);
+    if (r) setCode(r.code.slice(0, 4) + '-' + r.code.slice(4));
+  };
   if (!people.length) return <div className="panel soft-box muted">Cargando compañeros…</div>;
   const sum = (r) => {
-    const st = ORDER.map((m) => (r[m] || 0) / MODS[m].max);
-    return { red: st.filter((x) => x > 0.8).length, amber: st.filter((x) => x >= 0.5 && x <= 0.8).length, total: Object.values(r).reduce((a, b) => a + b, 0) };
+    const st = ORDER.map((m) => level(m, r[m] || 0));
+    return { red: st.filter((x) => x === 'bad' || x === 'lost').length, amber: st.filter((x) => x === 'warn').length, total: Object.values(r).reduce((a, b) => a + b, 0) };
   };
   return (
     <>
       <div className="grid2">
         {people.map((p) => {
-          const s = p.share && p.resumen ? sum(p.resumen) : null;
+          const s = p.share && p.resumen ? sum(p.resumen) : null, can = s || me.admin;
           return (
-            <button key={p.user} className="panel" onClick={() => s && setSel(p)} disabled={!s}
-              style={{ padding: 14, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, textAlign: 'center', color: 'var(--ink)', cursor: s ? 'pointer' : 'default' }}>
+            <button key={p.user} className="panel" onClick={() => can && open(p)} disabled={!can}
+              style={{ padding: 14, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, textAlign: 'center', color: 'var(--ink)', cursor: can ? 'pointer' : 'default' }}>
               <Avatar person={p} size={64} />
               <span className="col" style={{ gap: 1 }}>
                 <span style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.2 }}>{p.name}{p.me ? ' (tú)' : ''}</span>
@@ -359,19 +366,36 @@ function Gente({ people, me }) {
       </div>
       <p className="muted" style={{ margin: 0, fontSize: 13, lineHeight: 1.4 }}>
         Solo ves las faltas de quien ha decidido compartirlas. {me.share ? 'Tú las estás compartiendo.' : 'Tú puedes compartir las tuyas desde tu perfil.'}
+        {me.admin && ' Como administrador, toca a cualquiera para darle un código si ha olvidado su contraseña.'}
       </p>
       {sel && (
         <div className="overlay" onClick={() => setSel(null)} style={{ alignItems: 'flex-end' }}>
           <div className="sheet" role="dialog" aria-modal="true" aria-label={`Faltas de ${sel.name}`} onClick={(e) => e.stopPropagation()} style={{ borderRadius: '28px 28px 0 0' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <Avatar person={sel} size={48} />
-              <span className="col" style={{ flex: 1 }}><span className="disp" style={{ fontSize: 20 }}>{sel.name}</span><span className="muted" style={{ fontSize: 13 }}>Faltas compartidas</span></span>
+              <span className="col" style={{ flex: 1 }}><span className="disp" style={{ fontSize: 20 }}>{sel.name}</span><span className="muted" style={{ fontSize: 13 }}>@{sel.user}{sel.share && sel.resumen ? ' · faltas compartidas' : ''}</span></span>
               <button className="round" aria-label="Cerrar" onClick={() => setSel(null)}><Icon name="close" size={18} /></button>
             </div>
-            <div className="grid2" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
+            {me.admin && (
+              <div className="panel soft-box col" style={{ gap: 10 }}>
+                {code ? (
+                  <>
+                    <span className="muted" style={{ fontSize: 13 }}>Código de recuperación para @{sel.user} · válido 24 horas, un solo uso</span>
+                    <span className="disp num" style={{ fontSize: 30, letterSpacing: '0.08em', userSelect: 'all' }}>{code}</span>
+                    <span className="muted" style={{ fontSize: 13, lineHeight: 1.4 }}>Pásaselo en persona o por privado. Con él pone una contraseña nueva en «¿Has olvidado tu contraseña?». Si generas otro, este deja de valer.</span>
+                  </>
+                ) : (
+                  <>
+                    <span style={{ fontSize: 14, lineHeight: 1.4 }}>¿Ha olvidado su contraseña? Genera un código para que ponga una nueva.</span>
+                    <button className="btn-main center" style={{ height: 46 }} disabled={busy} onClick={genCode}>{busy ? 'Generando…' : 'Generar código de recuperación'}</button>
+                  </>
+                )}
+              </div>
+            )}
+            {sel.share && sel.resumen && <div className="grid2" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
               {ORDER.map((m) => {
                 const n = sel.resumen[m] || 0, pct = n / MODS[m].max;
-                const c = pct > 1 || pct > 0.8 ? 'var(--bad)' : pct >= 0.5 ? 'var(--warn)' : 'var(--ok)';
+                const lv = level(m, n), c = lv === 'ok' ? 'var(--ok)' : lv === 'warn' ? 'var(--warn)' : 'var(--bad)';
                 return (
                   <div key={m} className="col" style={{ alignItems: 'center', gap: 4 }}>
                     <Gauge p={pct} color={c} size={64} stroke={6} label={`${m}: ${n} de ${MODS[m].max} horas`}><Chip s={m} size={40} /></Gauge>
@@ -379,7 +403,7 @@ function Gente({ people, me }) {
                   </div>
                 );
               })}
-            </div>
+            </div>}
           </div>
         </div>
       )}

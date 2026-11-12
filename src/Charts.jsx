@@ -108,7 +108,7 @@ function Bars({ cards }) {
               <div style={{ position: 'absolute', inset: 0, borderRadius: 6, background: 'var(--surface2)' }} />
               <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: c.barW, minWidth: c.n ? 6 : 0, borderRadius: 6, background: c.sc }} />
               <div style={{ position: 'absolute', top: -3, bottom: -3, left: '50%', width: 2, background: 'var(--surface)' }} />
-              <div style={{ position: 'absolute', top: -3, bottom: -3, left: '80%', width: 2, background: 'var(--surface)' }} />
+              <div style={{ position: 'absolute', top: -3, bottom: -3, left: (c.m.aviso / c.m.max) * 100 + '%', width: 2, background: 'var(--surface)' }} />
             </div>
             <span style={{ fontSize: 14, fontWeight: 600, textAlign: 'right', whiteSpace: 'nowrap' }}><b style={{ fontSize: 15 }}>{c.n}</b>/{c.m.max} h</span>
           </div>
@@ -117,12 +117,12 @@ function Bars({ cards }) {
           <span />
           <div style={{ position: 'relative', height: 16, fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>
             <span style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)' }}>50 %</span>
-            <span style={{ position: 'absolute', left: '80%', transform: 'translateX(-50%)' }}>80 %</span>
+            <span style={{ position: 'absolute', left: '76%', transform: 'translateX(-50%)' }}>aviso</span>
           </div>
         </div>
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px', fontSize: 13, fontWeight: 600 }}>
-        {[['var(--ok)', 'Vas bien · menos del 50 %'], ['var(--warn)', 'Cuidado · 50–80 %'], ['var(--bad)', 'Al límite · más del 80 %']].map(([c, l]) => (
+        {[['var(--ok)', 'Vas bien · menos de la mitad'], ['var(--warn)', 'Cuidado · desde la mitad'], ['var(--bad)', 'Al límite · desde el aviso (15 % del módulo)']].map(([c, l]) => (
           <span key={l} style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 12, height: 12, borderRadius: 3, background: c }} />{l}</span>
         ))}
       </div>

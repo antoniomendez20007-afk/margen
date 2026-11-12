@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { api, isLocal, token, cache, ApiError } from './api.js';
 import Resumen from './Charts.jsx';
-import { SLOTS, BREAK, WEEK, MODS, ORDER, DAYS, MONTHS, WD, WDL, key, parse, wdIdx } from './data.js';
+import { SLOTS, BREAK, WEEK, MODS, ORDER, DAYS, MONTHS, WD, WDL, key, parse, wdIdx, level } from './data.js';
 import { Icon, Gauge, Chip, Dot, Avatar, squarePhoto } from './ui.jsx';
 import Clase from './Clase.jsx';
 
@@ -120,7 +120,8 @@ export default function App() {
 
   return (
     <>
-      {screen === 'login' && <Login onDone={enter} goRegister={() => setScreen('register')} />}
+      {screen === 'login' && <Login onDone={enter} goRegister={() => setScreen('register')} goRecover={() => setScreen('recover')} />}
+      {screen === 'recover' && <Recover onDone={enter} goLogin={() => setScreen('login')} />}
       {screen === 'register' && <Register onDone={enter} goLogin={() => setScreen('login')} />}
       {screen === 'app' && user && (
         <Main user={user} setUser={setUser} abs={abs} call={call} showToast={showToast} theme={theme} setTheme={setTheme} logout={logout}
@@ -159,7 +160,7 @@ function Hero() {
   );
 }
 
-function Login({ onDone, goRegister }) {
+function Login({ onDone, goRegister, goRecover }) {
   const [u, setU] = useState(''), [p, setP] = useState(''), [remember, setRemember] = useState(true);
   const [err, setErr] = useState(''), [busy, setBusy] = useState(false);
   const submit = async (e) => {
@@ -192,9 +193,50 @@ function Login({ onDone, goRegister }) {
           <button className="btn-main" disabled={busy} style={{ marginTop: 4 }}><span>{busy ? 'Entrando…' : 'Entrar'}</span><span className="go"><Icon name="arrow" size={20} /></span></button>
         </div>
         <div className="col" style={{ gap: 14, alignItems: 'center' }}>
+          <a href="#" onClick={(e) => { e.preventDefault(); goRecover(); }} style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>¿Has olvidado tu contraseña?</a>
           <p style={{ margin: 0, fontSize: 15 }} className="muted">¿Aún no tienes cuenta? <a href="#" onClick={(e) => { e.preventDefault(); goRegister(); }} style={{ fontWeight: 600, color: 'var(--ink)' }}>Crear cuenta</a></p>
           {isLocal && <p className="mono">Modo de prueba · usuario lucia · contraseña 1234</p>}
         </div>
+      </form>
+    </div>
+  );
+}
+
+// Sin correo electrónico: un administrador genera un código de un solo uso
+// desde Clase → Compañeros y se lo pasa en persona o por mensaje.
+function Recover({ onDone, goLogin }) {
+  const [f, setF] = useState({ u: '', c: '', p: '', p2: '' });
+  const [err, setErr] = useState(''), [busy, setBusy] = useState(false);
+  const set = (k) => (e) => { setF({ ...f, [k]: e.target.value }); setErr(''); };
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!f.u.trim() || !f.c.trim() || !f.p) return setErr('Rellena todos los campos.');
+    if (f.p.length < 4) return setErr('La contraseña necesita al menos 4 caracteres.');
+    if (f.p !== f.p2) return setErr('Las dos contraseñas no coinciden.');
+    setBusy(true);
+    try { const r = await api.resetPass(f.u, f.c, f.p, true); token.set(r.token, true); onDone(r); }
+    catch (x) { setErr(x.message); setBusy(false); }
+  };
+  return (
+    <div className="auth">
+      <form className="auth-box" style={{ gap: 26 }} onSubmit={submit}>
+        <div className="topbar">
+          <button type="button" className="round" aria-label="Volver" onClick={goLogin}><Icon name="back" size={20} /></button>
+          <h1>Recuperar contraseña</h1><span />
+        </div>
+        <div className="col" style={{ gap: 8 }}>
+          <h2 className="h1" style={{ fontSize: 30 }}>Pon una contraseña nueva</h2>
+          <p style={{ margin: 0, fontSize: 16, textWrap: 'pretty' }} className="muted">Pide a un administrador de Margen (por ejemplo, @antoniom) un código de recuperación. Dura 24 horas y solo sirve una vez. Tus faltas no se pierden.</p>
+        </div>
+        <div className="col" style={{ gap: 14 }}>
+          <label className="field">Usuario<input value={f.u} onChange={set('u')} autoComplete="username" autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="tu usuario" maxLength={30} /></label>
+          <label className="field">Código de recuperación<input className="code" value={f.c} onChange={set('c')} autoComplete="one-time-code" autoCapitalize="characters" autoCorrect="off" spellCheck={false} placeholder="XXXX-XXXX" maxLength={12} /></label>
+          <label className="field">Contraseña nueva<input type="password" value={f.p} onChange={set('p')} autoComplete="new-password" placeholder="mínimo 4 caracteres" /></label>
+          <label className="field">Repite la contraseña<input type="password" value={f.p2} onChange={set('p2')} autoComplete="new-password" placeholder="otra vez" /></label>
+          {err && <div className="err" role="alert">{err}</div>}
+          <button className="btn-main" disabled={busy} style={{ marginTop: 4 }}><span>{busy ? 'Guardando…' : 'Cambiar y entrar'}</span><span className="go"><Icon name="arrow" size={20} /></span></button>
+        </div>
+        {isLocal && <p className="mono">Modo de prueba · entra como lucia y genera el código en Clase → Compañeros</p>}
       </form>
     </div>
   );
@@ -298,7 +340,7 @@ function Main({ user, setUser, abs, call, showToast, theme, setTheme, logout, on
 
   const stat = (s) => {
     const m = MODS[s], n = abs.filter((a) => a.mod === s).length, pct = n / m.max, left = Math.max(0, m.max - n), lost = n > m.max;
-    const st = lost ? 'lost' : pct > 0.8 ? 'bad' : pct >= 0.5 ? 'warn' : 'ok', x = ST[st];
+    const st = level(s, n), x = ST[st];
     return {
       s, m, n, pct, left, lost, st, label: x[0], sc: x[1], soft: x[2], over: n - m.max,
       barW: Math.min(100, pct * 100) + '%', hWord: left === 1 ? 'hora' : 'horas', leftWord: lost ? 'perdida' : left === 1 ? 'hora' : 'horas',
@@ -707,6 +749,7 @@ function Detalle({ st, abs, w, plus, minus, remove, toggleTag, busy }) {
             <span className="muted" style={{ fontSize: 14, fontWeight: 500 }}>{st.m.prof}</span>
           </span>
           <span className="status" style={{ '--dot': st.sc }}>{st.label}</span>
+          <span className="muted num" style={{ fontSize: 13, fontWeight: 500, textAlign: 'center' }}>Aviso a las {st.m.aviso} h · se pierde al pasar de {st.m.max} h</span>
         </section>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>

@@ -78,6 +78,8 @@ const run = async (action, args) => {
 const remote = {
   login: (user, pass, remember) => run('login', { user, pass, remember }),
   register: (name, user, pass, code) => run('register', { name, user, pass, code }),
+  resetCode: (t, user) => run('resetCode', { token: t, user }),
+  resetPass: (user, code, pass, remember) => run('resetPass', { user, code, pass, remember }),
   me: (t) => run('me', { token: t }),
   logout: (t) => run('logout', { token: t }),
   add: (t, items) => run('add', { token: t, items }),
@@ -127,7 +129,9 @@ function sample(today) {
 }
 
 const wait = () => new Promise((r) => setTimeout(r, 120));
-const users = () => [DEMO, ...LS.read('margen_users', [])];
+// Contraseñas cambiadas con un código de recuperación (modo de prueba)
+const users = () => { const pw = LS.read('margen_pass', {}); return [DEMO, ...LS.read('margen_users', [])].map((u) => (pw[u.user] ? { ...u, pass: pw[u.user] } : u)); };
+const normCode = (c) => String(c || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 const absOf = (u) => {
   let a = LS.read('margen_abs_' + u, null);
   if (!a) { a = u === DEMO.user ? sample(key(new Date())) : []; LS.write('margen_abs_' + u, a); }
@@ -180,6 +184,25 @@ const local = {
     const nu = { user: u, pass, name: name.trim() };
     LS.write('margen_users', [...LS.read('margen_users', []), nu]);
     return { token: u, user: pub(nu), abs: absOf(u) };
+  },
+  async resetCode(t, user) {
+    await wait();
+    if (!pub(userOf(t)).admin) throw new ApiError('Solo un administrador puede generar códigos de recuperación.');
+    const C = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789', code = Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) => C[b % C.length]).join('');
+    LS.write('margen_resets', { ...LS.read('margen_resets', {}), [user]: { code, until: Date.now() + 864e5 } });
+    return { code };
+  },
+  async resetPass(user, code, pass) {
+    await wait();
+    const u = String(user || '').trim().toLowerCase(), r = LS.read('margen_resets', {}), x = r[u];
+    if (!u || !normCode(code) || !pass) throw new ApiError('Rellena todos los campos.');
+    if (pass.length < 4) throw new ApiError('La contraseña necesita al menos 4 caracteres.');
+    const me = users().find((y) => y.user === u);
+    if (!me || !x || normCode(code) !== x.code) throw new ApiError('Usuario o código incorrectos.');
+    if (x.until < Date.now()) throw new ApiError('Ese código ha caducado. Pide otro.');
+    delete r[u]; LS.write('margen_resets', r);
+    LS.write('margen_pass', { ...LS.read('margen_pass', {}), [u]: pass });
+    return { token: u, user: pub(me), abs: absOf(u) };
   },
   async me(t) { await wait(); const u = userOf(t); return { user: pub(u), abs: absOf(u.user) }; },
   async logout() {},
